@@ -40,19 +40,33 @@ Sections
 
 ### `say()`
 
-### `file() /path/to/file`
+### `file([i|e]) /path/to/file`
 
 
 Contents
 --------
 
-### `l{NUMBER}(COMMANDS)`
+### `say`
+
+### `l {NUMBER}(COMMANDS)`
+
+### `edit {NUMBER}`
 
 
 Commands
 --------
 
+### `lang LANGUAGE`
 
+Set video language.
+
+### `subtitle LANGUAGE`
+
+Set subtitle language.
+
+### `Screen (portrait|landscape)`
+
+Set screen direction.
 
 
 Author

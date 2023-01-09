@@ -96,7 +96,7 @@ How to use
     # then we could create input video from an exist file.
     # here `i` means all content should be input automatically
     file(i) 'index.html':
-        [start] Let's make a simple html as example.
+        [say] Let's make a simple html as example.
         # `l1` means this text should be read out in the first line of input.
         [l1] `doctype html` will tell browser this is page will follow HTML5 specification.
         [l5] `div` is a container we will use it many times to create full page layout
@@ -107,7 +107,7 @@ How to use
 
     # another input video 
     file(i) 'style.css':
-        [start] Then let's add some styles to this page.
+        [say] Then let's add some styles to this page.
         [l5] `color red` will make the color of font to red.
 
     # just `say`, we should stay at last screen, until the speech finished 
@@ -120,9 +120,9 @@ How to use
     ```tutolang
     # `e` = edit from previous commit
     file(e) 'style.css':
-        [start] the default red is a little ugly, let's make it better
+        [say] the default red is a little ugly, let's make it better
         # use new content from row 5, column 7, replace old one
-        [diff 5,7] `#369` is a hex number
+        [edit 5] `#369` is a hex number
 
     say:
         better, yes?
@@ -139,12 +139,18 @@ Documentation
 [Reference](./Reference.md)
 
 
+Roadmap
+-------
+
+[Roadmap](./Roadmap.md)
+
+
 Usage
 --------
 
 ### Configuration
 
-You can put a config JS file at `~/tutolang/` or CWD to set the configuration:
+You can put a config JS file at `~/tutolang/config.js` or `{CWD}/tutolang.config.js` to set the configuration:
 
 ```js
 module.exports = {
