@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "ESNext"
+    ],
+    "target": "ESNext",
+    "moduleResolution": "NodeNext",
+    "experimentalDecorators": true,
+    "noUnusedLocals": false,
+    "declaration": true,
+    "esModuleInterop": true
+  },
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

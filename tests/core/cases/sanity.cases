@@ -1,0 +1,4 @@
+=== TEST 1: say something
+--- tuto
+say(image=/path/to/photo):
+    hi, I'm Tutolang, let's make some movie

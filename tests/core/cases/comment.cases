@@ -1,0 +1,19 @@
+=== TEST1: line comment
+--- tuto
+# hello world
+
+
+
+=== TEST2: block comment
+--- tuto
+#{
+    hello world
+}
+
+
+
+### TEST3: block comment with multiple brace
+--- tuto
+#{{
+    {hello world}
+}}
