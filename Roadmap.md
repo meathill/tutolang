@@ -5,6 +5,14 @@ Roadmap
 - [ ] Parser
 - [ ] Code generator
 - [ ] Executor
+  - [ ] IDE input
+    - [ ] VSCode
+    - [ ] WebStorm
+    - [ ] Codepen
+  - [ ] Result preview
+    - [ ] Browser
+    - [ ] Terminal
+- [ ] Video merger
 - [ ] Plugin system
 - [ ] Portrait screen video
 - [ ] Auto focus in input area 
