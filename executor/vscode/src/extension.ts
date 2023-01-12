@@ -1,6 +1,45 @@
 import * as vscode from 'vscode'
 
-const sleep = (delay: number) => new Promise(resolve => setTimeout(resolve, delay))
+const sleep = (delay = 300) => new Promise(resolve => setTimeout(resolve, delay))
+
+// const handleInputOneWord = async (
+//   editer: vscode.TextEditor | undefined,
+//   text: string,
+//   startRow: number,
+//   startCol: number
+// ) => {
+//   if (!editer) {
+//     return
+//   }
+//   return new Promise(resolve => {
+//     setTimeout(() => {
+//       editer.edit(editBuilder => {
+//         editBuilder.insert(new vscode.Position(startRow, startCol), text)
+//         resolve('Completed Input a word')
+//       })
+//     }, 40)
+//   })
+// }
+
+// const handleInput = async (editer: vscode.TextEditor | undefined, text: string, startRow: number, startCol: number) => {
+//   if (!editer) {
+//     return
+//   }
+//   return new Promise(async resolve => {
+//     let curRow = startRow
+//     let curCol = startCol
+//     for (let i = 0; i < text.length; i++) {
+//       console.log(text[i].toString())
+
+//       if (text[i] == '\n') {
+//         curRow = curRow + 1
+//       }
+//       await handleInputOneWord(editer, text[i], curRow, curCol)
+//       curCol = curCol + 1
+//     }
+//     resolve('Completed Input Task')
+//   })
+// }
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "tutolang-vscode-extension" is now active!')
@@ -30,7 +69,7 @@ function A() {
         row = row + 1
       }
       col = col + 1
-      await sleep(50)
+      await sleep(40)
 
       editer.edit(editBuilder => {
         editBuilder.insert(new vscode.Position(row, col), text[i])
@@ -98,7 +137,7 @@ function A() {
         col = col + 1
       }
 
-      await sleep(50)
+      await sleep(40)
 
       newEditor.edit(editBuilder => {
         editBuilder.insert(new vscode.Position(row, col), insertCode[i])
