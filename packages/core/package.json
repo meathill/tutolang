@@ -2,5 +2,7 @@
   "name": "@tutolang/core",
   "version": "0.1.0",
   "dependencies": {
-  }
+    "@tutolang/types": "workspace:*"
+  },
+  "type": "module"
 }
