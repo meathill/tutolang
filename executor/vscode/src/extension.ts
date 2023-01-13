@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import axios from 'axios';
+import constant from './constant';
 
 const sleep = (delay = 90) => new Promise(resolve => setTimeout(resolve, delay));
 
-const handleInputOneWord = (
+const handleInputOneWord = async (
   editor: vscode.TextEditor | undefined,
   word: string,
   startRow: number,
@@ -12,13 +13,9 @@ const handleInputOneWord = (
   if (!editor) {
     return;
   }
-
-  return new Promise(async resolve => {
-    await sleep();
-    await editor.edit(editBuilder => {
-      editBuilder.insert(new vscode.Position(startRow, startCol), word);
-    });
-    resolve('Completed Input a word');
+  await sleep();
+  await editor.edit(editBuilder => {
+    editBuilder.insert(new vscode.Position(startRow, startCol), word);
   });
 };
 
@@ -26,64 +23,60 @@ const handleInput = async (editor: vscode.TextEditor | undefined, text: string, 
   if (!editor) {
     return;
   }
-  return new Promise(async resolve => {
-    let curRow = startRow;
-    let curCol = startCol;
-    for (let i = 0; i < text.length; i++) {
-      await handleInputOneWord(editor, text[i], curRow, curCol);
-      if (text[i] === '\n') {
-        curRow = curRow + 1;
-      }
-      curCol = curCol + 1;
+  let curRow = startRow;
+  let curCol = startCol;
+  for (let i = 0; i < text.length; i++) {
+    await handleInputOneWord(editor, text[i], curRow, curCol);
+    if (text[i] === '\n') {
+      curRow = curRow + 1;
     }
-    resolve('Completed Input Task');
-  });
+    curCol = curCol + 1;
+  }
 };
 
-const handleMoveCursor = (editor: vscode.TextEditor | undefined, fromPosition: number[], toPosition: number[]) => {
+const handleMoveCursor = async (
+  editor: vscode.TextEditor | undefined,
+  fromPosition: { row: number; col: number },
+  toPosition: { row: number; col: number }
+) => {
   if (!editor) {
     return;
   }
+  while (fromPosition.row < toPosition.row) {
+    fromPosition.row = Number(fromPosition.row) + 1;
+    await sleep();
+    editor.selection = new vscode.Selection(
+      new vscode.Position(fromPosition.row, fromPosition.col),
+      new vscode.Position(fromPosition.row, fromPosition.col)
+    );
+  }
 
-  return new Promise(async resolve => {
-    while (fromPosition[0] < toPosition[0]) {
-      fromPosition[0] = Number(fromPosition[0]) + 1;
-      await sleep();
-      editor.selection = new vscode.Selection(
-        new vscode.Position(fromPosition[0], fromPosition[1]),
-        new vscode.Position(fromPosition[0], fromPosition[1])
-      );
-    }
+  while (fromPosition.row > toPosition.row) {
+    fromPosition.row = Number(fromPosition.row) - 1;
+    await sleep();
+    editor.selection = new vscode.Selection(
+      new vscode.Position(fromPosition.row, fromPosition.col),
+      new vscode.Position(fromPosition.row, fromPosition.col)
+    );
+  }
 
-    while (fromPosition[0] > toPosition[0]) {
-      fromPosition[0] = Number(fromPosition[0]) - 1;
-      await sleep();
-      editor.selection = new vscode.Selection(
-        new vscode.Position(fromPosition[0], fromPosition[1]),
-        new vscode.Position(fromPosition[0], fromPosition[1])
-      );
-    }
+  while (fromPosition.col < toPosition.col) {
+    fromPosition.col = Number(fromPosition.col) + 1;
+    await sleep();
+    editor.selection = new vscode.Selection(
+      new vscode.Position(fromPosition.row, fromPosition.col),
+      new vscode.Position(fromPosition.row, fromPosition.col)
+    );
+  }
 
-    while (fromPosition[1] < toPosition[1]) {
-      fromPosition[1] = Number(fromPosition[1]) + 1;
-      await sleep();
-      editor.selection = new vscode.Selection(
-        new vscode.Position(fromPosition[0], fromPosition[1]),
-        new vscode.Position(fromPosition[0], fromPosition[1])
-      );
-    }
-
-    while (fromPosition[1] > toPosition[1]) {
-      fromPosition[1] = Number(fromPosition[1]) - 1;
-      await sleep();
-      editor.selection = new vscode.Selection(
-        new vscode.Position(fromPosition[0], fromPosition[1]),
-        new vscode.Position(fromPosition[0], fromPosition[1])
-      );
-    }
-
-    resolve('Completed MoveCursor Task');
-  });
+  while (fromPosition.col > toPosition.col) {
+    fromPosition.col = Number(fromPosition.col) - 1;
+    await sleep();
+    editor.selection = new vscode.Selection(
+      new vscode.Position(fromPosition.row, fromPosition.col),
+      new vscode.Position(fromPosition.row, fromPosition.col)
+    );
+  }
 };
 
 export function activate(context: vscode.ExtensionContext) {
@@ -132,28 +125,41 @@ function A() {
 
     console.log(editor.document.getText());
 
-    let fromPosition = [editor.selection.active.line, editor.selection.active.character];
-    let toPosition = [17, 43];
+    let fromPosition = {
+      row: editor.selection.active.line,
+      col: editor.selection.active.character,
+    };
+
+    let toPosition = { row: 17, col: 43 };
 
     await handleMoveCursor(editor, fromPosition, toPosition);
 
     text = `
     <script src="./test.js"></script>`;
 
-    await handleInput(editor, text, fromPosition[0], fromPosition[1]);
+    await handleInput(editor, text, fromPosition.row, fromPosition.col);
+
+    roundRobin();
   };
 
-  let key = 0;
-  setInterval(async () => {
-    key = key + 1;
-    const {
-      data: { code },
-    } = await axios.get(`http://127.0.0.1:4001/query?key=${key}`);
+  function roundRobin() {
+    let key = 0;
+    let timer = setInterval(async () => {
+      console.log('setInterval');
 
-    if (code === 200) {
-      exec();
-    }
-  }, 5000);
+      key = key + 1;
+      const {
+        data: { order },
+      } = await axios.get(`http://127.0.0.1:4001/query?key=${key}`);
+
+      if (order.length > 0) {
+        clearInterval(timer);
+        exec();
+      }
+    }, constant.REQUEST_INTERVAL);
+  }
+
+  roundRobin();
 
   let disposable = vscode.commands.registerCommand('tutolang-vscode-extension.codeDemo', async () => {
     vscode.window.showInformationMessage(`Hello, I'm Oreo!`);
