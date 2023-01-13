@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import axios from 'axios';
 
 const sleep = (delay = 90) => new Promise(resolve => setTimeout(resolve, delay));
 
@@ -14,10 +15,10 @@ const handleInputOneWord = (
 
   return new Promise(async resolve => {
     await sleep();
-    editor.edit(editBuilder => {
+    await editor.edit(editBuilder => {
       editBuilder.insert(new vscode.Position(startRow, startCol), word);
-      resolve('Completed Input a word');
     });
+    resolve('Completed Input a word');
   });
 };
 
@@ -54,8 +55,26 @@ const handleMoveCursor = (editor: vscode.TextEditor | undefined, fromPosition: n
       );
     }
 
+    while (fromPosition[0] > toPosition[0]) {
+      fromPosition[0] = Number(fromPosition[0]) - 1;
+      await sleep();
+      editor.selection = new vscode.Selection(
+        new vscode.Position(fromPosition[0], fromPosition[1]),
+        new vscode.Position(fromPosition[0], fromPosition[1])
+      );
+    }
+
     while (fromPosition[1] < toPosition[1]) {
       fromPosition[1] = Number(fromPosition[1]) + 1;
+      await sleep();
+      editor.selection = new vscode.Selection(
+        new vscode.Position(fromPosition[0], fromPosition[1]),
+        new vscode.Position(fromPosition[0], fromPosition[1])
+      );
+    }
+
+    while (fromPosition[1] > toPosition[1]) {
+      fromPosition[1] = Number(fromPosition[1]) - 1;
       await sleep();
       editor.selection = new vscode.Selection(
         new vscode.Position(fromPosition[0], fromPosition[1]),
@@ -124,7 +143,17 @@ function A() {
     await handleInput(editor, text, fromPosition[0], fromPosition[1]);
   };
 
-  exec();
+  let key = 0;
+  setInterval(async () => {
+    key = key + 1;
+    const {
+      data: { code },
+    } = await axios.get(`http://127.0.0.1:4001/query?key=${key}`);
+
+    if (code === 200) {
+      exec();
+    }
+  }, 5000);
 
   let disposable = vscode.commands.registerCommand('tutolang-vscode-extension.codeDemo', async () => {
     vscode.window.showInformationMessage(`Hello, I'm Oreo!`);
