@@ -36,7 +36,7 @@ async function handleOpenFile(filePath: string) {
     viewColumn: vscode.ViewColumn.One,
   };
   await vscode.window.showTextDocument(vscode.Uri.file(_filePath), options);
-  let editor = vscode.window.activeTextEditor;
+  const editor = vscode.window.activeTextEditor;
   if (editor) {
     console.log(editor.document.getText());
   }
@@ -44,7 +44,7 @@ async function handleOpenFile(filePath: string) {
 
 async function handleInput(text: string, startRow: number, startCol: number) {
   await sleep(1500);
-  let editor = vscode.window.activeTextEditor;
+  const editor = vscode.window.activeTextEditor;
   if (!editor) {
     return;
   }
@@ -114,7 +114,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   const exec = async (commands: Array<Command>) => {
     for (let i = 0; i < commands.length; i++) {
-      let command = commands[i];
+      const command = commands[i];
       switch (command.type) {
         case 'OpenFile':
           if (command.filePath) {
@@ -140,7 +140,7 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   function roundRobin() {
-    let exampleCommands = [
+    const exampleCommands = [
       { type: 'OpenFile', filePath: './test.js' },
       {
         type: 'Input',
