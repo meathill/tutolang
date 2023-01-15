@@ -2,26 +2,23 @@ const path = require('path');
 import * as vscode from 'vscode';
 import axios from 'axios';
 import { REQUEST_INTERVAL, BASE_URL, WORK_DIR } from './constants';
-
-interface Command {
-  type: string;
-  filePath?: string;
-  content?: string;
-  position?: {
-    row: number;
-    col: number;
-  };
-  toPosition?: {
-    row: number;
-    col: number;
-  };
-}
+import { OpenFileCommand, OpenFileOptions, InputCommand, MoveCursorCommand } from './data';
 
 function sleep(delay = 10) {
   return new Promise(resolve => setTimeout(resolve, delay));
 }
 
-async function handleOpenFile(filePath: string) {
+async function handleOpenFile(
+  filePath: string,
+  options: OpenFileOptions = {
+    selectRange: {
+      startPosition: { row: 0, col: 0 },
+      endPosition: { row: 0, col: 0 },
+    },
+    preview: false,
+    viewColumn: 1,
+  }
+) {
   await sleep(1500);
   const filenameArr = filePath.split('/');
   const filename = filenameArr[filenameArr.length - 1];
@@ -30,19 +27,31 @@ async function handleOpenFile(filePath: string) {
   });
   await sleep(1500);
   const _filePath = path.resolve(WORK_DIR, filePath);
-  const options = {
-    selection: new vscode.Range(new vscode.Position(10, 8), new vscode.Position(10, 27)),
-    preview: false,
-    viewColumn: vscode.ViewColumn.One,
-  };
-  await vscode.window.showTextDocument(vscode.Uri.file(_filePath), options);
+  const _options: vscode.TextDocumentShowOptions = {};
+  if (options.selectRange) {
+    _options.selection = new vscode.Range(
+      new vscode.Position(options.selectRange.startPosition.row, options.selectRange.startPosition.col),
+      new vscode.Position(options.selectRange.endPosition.row, options.selectRange.endPosition.col)
+    );
+  }
+  if (options.preview !== undefined) {
+    _options.preview = options.preview;
+  }
+  if (options.viewColumn) {
+    _options.viewColumn = {
+      1: vscode.ViewColumn.One,
+      2: vscode.ViewColumn.Two,
+      3: vscode.ViewColumn.Three,
+    }[options.viewColumn];
+  }
+  await vscode.window.showTextDocument(vscode.Uri.file(_filePath), _options);
   const editor = vscode.window.activeTextEditor;
   if (editor) {
     console.log(editor.document.getText());
   }
 }
 
-async function handleInput(text: string, startRow: number, startCol: number) {
+async function handleInput(content: string, startRow: number, startCol: number) {
   await sleep(1500);
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
@@ -50,12 +59,12 @@ async function handleInput(text: string, startRow: number, startCol: number) {
   }
   let curRow = startRow;
   let curCol = startCol;
-  for (let i = 0; i < text.length; i++) {
+  for (let i = 0; i < content.length; i++) {
     await sleep();
     await editor.edit(editBuilder => {
-      editBuilder.insert(new vscode.Position(curRow, curCol), text[i]);
+      editBuilder.insert(new vscode.Position(curRow, curCol), content[i]);
     });
-    if (text[i] === '\n') {
+    if (content[i] === '\n') {
       curRow = curRow + 1;
     }
     curCol = curCol + 1;
@@ -72,6 +81,7 @@ async function handleMoveCursor(toPosition: { row: number; col: number }) {
     row: editor.selection.active.line,
     col: editor.selection.active.character,
   };
+
   while (fromPosition.row < toPosition.row) {
     fromPosition.row = Number(fromPosition.row) + 1;
     await sleep();
@@ -112,17 +122,26 @@ async function handleMoveCursor(toPosition: { row: number; col: number }) {
 export function activate(context: vscode.ExtensionContext) {
   console.log('Congratulations, your extension "tutolang-vscode-extension" is now active!');
 
-  const exec = async (commands: Array<Command>) => {
+  const exec = async (commands: Array<OpenFileCommand | InputCommand | MoveCursorCommand>) => {
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
       switch (command.type) {
         case 'OpenFile':
           if (command.filePath) {
-            await handleOpenFile(command.filePath);
+            if (command.openFileOptions) {
+              await handleOpenFile(command.filePath, command.openFileOptions);
+            } else {
+              await handleOpenFile(command.filePath);
+            }
           }
           break;
         case 'Input':
-          if (command.content && command.position && command.position.row && command.position.col) {
+          if (
+            command.content &&
+            command.position &&
+            command.position.row !== undefined &&
+            command.position.col !== undefined
+          ) {
             await handleInput(command.content, command.position.row, command.position.col);
           }
           break;
@@ -141,7 +160,18 @@ export function activate(context: vscode.ExtensionContext) {
 
   function roundRobin() {
     const exampleCommands = [
-      { type: 'OpenFile', filePath: './test.js' },
+      {
+        type: 'OpenFile',
+        filePath: './test.js',
+        openFileOptions: {
+          selectRange: {
+            startPosition: { row: 10, col: 8 },
+            endPosition: { row: 10, col: 27 },
+          },
+          preview: false,
+          viewColumn: 1,
+        },
+      },
       {
         type: 'Input',
         content: `// (语音) JavaScript 函数是被设计为执行特定任务的代码块。
@@ -156,7 +186,18 @@ export function activate(context: vscode.ExtensionContext) {
     // 下面我们去 HTML文件 中通过<script>脚本的形式引入我们刚刚写的函数`,
         position: { row: 0, col: 0 },
       },
-      { type: 'OpenFile', filePath: './test.html' },
+      {
+        type: 'OpenFile',
+        filePath: './test.html',
+        openFileOptions: {
+          selectRange: {
+            startPosition: { row: 10, col: 8 },
+            endPosition: { row: 10, col: 27 },
+          },
+          preview: true,
+          viewColumn: 2,
+        },
+      },
       { type: 'MoveCursor', toPosition: { row: 17, col: 43 } },
       {
         type: 'Input',
