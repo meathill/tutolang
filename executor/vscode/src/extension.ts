@@ -2,7 +2,7 @@ const path = require('path');
 import * as vscode from 'vscode';
 import axios from 'axios';
 import { REQUEST_INTERVAL, BASE_URL, WORK_DIR } from './constants';
-import { OpenFileCommand, OpenFileOptions, InputCommand, MoveCursorCommand } from './data';
+import { OpenFileCommand, OpenFileOptions, InputCommand, MoveCursorCommand, CommandType } from './data';
 
 const defaultOptionsForHandleOpenFile = {
   selectRange: {
@@ -125,13 +125,13 @@ export function activate(context: vscode.ExtensionContext) {
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
       switch (command.type) {
-        case 'OpenFile':
+        case CommandType.OpenFile:
           await handleOpenFile(command.filePath, command.openFileOptions);
           break;
-        case 'Input':
+        case CommandType.Input:
           await handleInput(command.content, command.position.row, command.position.col);
           break;
-        case 'MoveCursor':
+        case CommandType.MoveCursor:
           await handleMoveCursor(command.toPosition);
           break;
         default:
