@@ -1,31 +1,40 @@
-export interface OpenFileCommand {
-  type: 'OpenFile';
+export enum CommandType {
+  OpenFile = 'OpenFile',
+  Input = 'Input',
+  MoveCursor = 'MoveCursor',
+}
+
+export interface Position {
+  row: number;
+  col: number;
+}
+
+export interface Command {
+  type: CommandType;
+}
+
+export interface OpenFileCommand extends Command {
+  type: CommandType.OpenFile;
   filePath: string;
   openFileOptions?: OpenFileOptions;
 }
 
 export interface OpenFileOptions {
   selectRange?: {
-    startPosition: { row: number; col: number };
-    endPosition: { row: number; col: number };
+    startPosition: Position;
+    endPosition: Position;
   };
   preview?: boolean;
   viewColumn?: number;
 }
 
-export interface InputCommand {
-  type: 'Input';
+export interface InputCommand extends Command {
+  type: CommandType.Input;
   content: string;
-  position: {
-    row: number;
-    col: number;
-  };
+  position: Position;
 }
 
-export interface MoveCursorCommand {
-  type: 'MoveCursor';
-  toPosition?: {
-    row: number;
-    col: number;
-  };
+export interface MoveCursorCommand extends Command {
+  type: CommandType.MoveCursor;
+  toPosition: Position;
 }

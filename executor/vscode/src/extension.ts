@@ -4,21 +4,20 @@ import axios from 'axios';
 import { REQUEST_INTERVAL, BASE_URL, WORK_DIR } from './constants';
 import { OpenFileCommand, OpenFileOptions, InputCommand, MoveCursorCommand } from './data';
 
+const defaultOptionsForHandleOpenFile = {
+  selectRange: {
+    startPosition: { row: 0, col: 0 },
+    endPosition: { row: 0, col: 0 },
+  },
+  preview: false,
+  viewColumn: 1,
+};
+
 function sleep(delay = 10) {
   return new Promise(resolve => setTimeout(resolve, delay));
 }
 
-async function handleOpenFile(
-  filePath: string,
-  options: OpenFileOptions = {
-    selectRange: {
-      startPosition: { row: 0, col: 0 },
-      endPosition: { row: 0, col: 0 },
-    },
-    preview: false,
-    viewColumn: 1,
-  }
-) {
+async function handleOpenFile(filePath: string, OpenFileOptions: OpenFileOptions = defaultOptionsForHandleOpenFile) {
   await sleep(1500);
   const filenameArr = filePath.split('/');
   const filename = filenameArr[filenameArr.length - 1];
@@ -26,25 +25,25 @@ async function handleOpenFile(
     value: filename,
   });
   await sleep(1500);
-  const _filePath = path.resolve(WORK_DIR, filePath);
-  const _options: vscode.TextDocumentShowOptions = {};
-  if (options.selectRange) {
-    _options.selection = new vscode.Range(
-      new vscode.Position(options.selectRange.startPosition.row, options.selectRange.startPosition.col),
-      new vscode.Position(options.selectRange.endPosition.row, options.selectRange.endPosition.col)
+  const fullPath = path.resolve(WORK_DIR, filePath);
+  const options: vscode.TextDocumentShowOptions = {};
+  if (OpenFileOptions.selectRange) {
+    options.selection = new vscode.Range(
+      new vscode.Position(OpenFileOptions.selectRange.startPosition.row, OpenFileOptions.selectRange.startPosition.col),
+      new vscode.Position(OpenFileOptions.selectRange.endPosition.row, OpenFileOptions.selectRange.endPosition.col)
     );
   }
-  if (options.preview !== undefined) {
-    _options.preview = options.preview;
+  if (OpenFileOptions.preview !== undefined) {
+    options.preview = OpenFileOptions.preview;
   }
-  if (options.viewColumn) {
-    _options.viewColumn = {
+  if (OpenFileOptions.viewColumn) {
+    options.viewColumn = {
       1: vscode.ViewColumn.One,
       2: vscode.ViewColumn.Two,
       3: vscode.ViewColumn.Three,
-    }[options.viewColumn];
+    }[OpenFileOptions.viewColumn];
   }
-  await vscode.window.showTextDocument(vscode.Uri.file(_filePath), _options);
+  await vscode.window.showTextDocument(vscode.Uri.file(fullPath), options);
   const editor = vscode.window.activeTextEditor;
   if (editor) {
     console.log(editor.document.getText());
@@ -127,28 +126,13 @@ export function activate(context: vscode.ExtensionContext) {
       const command = commands[i];
       switch (command.type) {
         case 'OpenFile':
-          if (command.filePath) {
-            if (command.openFileOptions) {
-              await handleOpenFile(command.filePath, command.openFileOptions);
-            } else {
-              await handleOpenFile(command.filePath);
-            }
-          }
+          await handleOpenFile(command.filePath, command.openFileOptions);
           break;
         case 'Input':
-          if (
-            command.content &&
-            command.position &&
-            command.position.row !== undefined &&
-            command.position.col !== undefined
-          ) {
-            await handleInput(command.content, command.position.row, command.position.col);
-          }
+          await handleInput(command.content, command.position.row, command.position.col);
           break;
         case 'MoveCursor':
-          if (command.toPosition) {
-            await handleMoveCursor(command.toPosition);
-          }
+          await handleMoveCursor(command.toPosition);
           break;
         default:
           break;
@@ -165,8 +149,8 @@ export function activate(context: vscode.ExtensionContext) {
         filePath: './test.js',
         openFileOptions: {
           selectRange: {
-            startPosition: { row: 10, col: 8 },
-            endPosition: { row: 10, col: 27 },
+            startPosition: { row: 0, col: 0 },
+            endPosition: { row: 0, col: 0 },
           },
           preview: false,
           viewColumn: 1,
@@ -175,15 +159,15 @@ export function activate(context: vscode.ExtensionContext) {
       {
         type: 'Input',
         content: `// (语音) JavaScript 函数是被设计为执行特定任务的代码块。
-    // (语音) JavaScript 函数会在某代码调用它时被执行。
+// (语音) JavaScript 函数会在某代码调用它时被执行。
 
-    // 下面我将教你如何在JavaScript中定义一个函数
-    function A() {
-      let a = 1;
-      return a;
-    }
+// 下面我将教你如何在JavaScript中定义一个函数
+function A() {
+  let a = 1;
+  return a;
+}
 
-    // 下面我们去 HTML文件 中通过<script>脚本的形式引入我们刚刚写的函数`,
+// 下面我们去 HTML文件 中通过<script>脚本的形式引入我们刚刚写的函数`,
         position: { row: 0, col: 0 },
       },
       {
@@ -202,7 +186,7 @@ export function activate(context: vscode.ExtensionContext) {
       {
         type: 'Input',
         content: `
-        <script src="./test.js"></script>`,
+    <script src="./test.js"></script>`,
         position: { row: 17, col: 43 },
       },
     ];
