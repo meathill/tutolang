@@ -2,7 +2,7 @@ const path = require('path');
 import * as vscode from 'vscode';
 import axios from 'axios';
 import { REQUEST_INTERVAL, BASE_URL, WORK_DIR } from './constants';
-import { OpenFileCommand, OpenFileOptions, InputCommand, MoveCursorCommand, CommandType } from './data';
+import { OpenFileCommand, OpenFileOptions, InputCommand, MoveCursorCommand, CommandType } from './types';
 
 const defaultOptionsForHandleOpenFile = {
   selectRange: {
@@ -197,6 +197,8 @@ function A() {
       const {
         data: { commands },
       } = await axios.get(`${BASE_URL}/query?key=${key}`);
+
+      console.log(commands);
 
       if (commands.length > 0) {
         clearInterval(timer);
