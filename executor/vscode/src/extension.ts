@@ -1,7 +1,7 @@
-const path = require('path');
+import * as path from 'path';
 import * as vscode from 'vscode';
 import axios from 'axios';
-import { REQUEST_INTERVAL, BASE_URL, WORK_DIR } from './constants';
+import { REQUEST_INTERVAL, BASE_URL, WORK_DIR, PREVIEW_TIME } from './constants';
 import { OpenFileCommand, OpenFileOptions, InputCommand, MoveCursorCommand, CommandType } from './types';
 
 const defaultOptionsForHandleOpenFile = {
@@ -18,13 +18,13 @@ function sleep(delay = 10) {
 }
 
 async function handleOpenFile(filePath: string, OpenFileOptions: OpenFileOptions = defaultOptionsForHandleOpenFile) {
-  await sleep(1500);
+  await sleep(PREVIEW_TIME);
   const filenameArr = filePath.split('/');
   const filename = filenameArr[filenameArr.length - 1];
   vscode.window.showInputBox({
     value: filename,
   });
-  await sleep(1500);
+  await sleep(PREVIEW_TIME);
   const fullPath = path.resolve(WORK_DIR, filePath);
   const options: vscode.TextDocumentShowOptions = {};
   if (OpenFileOptions.selectRange) {
@@ -51,7 +51,7 @@ async function handleOpenFile(filePath: string, OpenFileOptions: OpenFileOptions
 }
 
 async function handleInput(content: string, startRow: number, startCol: number) {
-  await sleep(1500);
+  await sleep(PREVIEW_TIME);
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     return;
@@ -71,7 +71,7 @@ async function handleInput(content: string, startRow: number, startCol: number) 
 }
 
 async function handleMoveCursor(toPosition: { row: number; col: number }) {
-  await sleep(1500);
+  await sleep(PREVIEW_TIME);
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     return;
