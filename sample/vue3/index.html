@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<body>
+<div id="app">
+  <button @click="count++">
+    Count is: {{ count }}
+  </button>
+</div>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script>
+  Vue.createApp({
+    data() {
+      return {
+        count: 0
+      }
+    }
+  }).mount('#app')
+</script>
+</body>
+</html>
