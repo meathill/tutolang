@@ -18,13 +18,13 @@ function sleep(delay = 10) {
 }
 
 async function handleOpenFile(filePath: string, OpenFileOptions: OpenFileOptions = defaultOptionsForHandleOpenFile) {
-  await sleep(PREVIEW_TIME);
+  PREVIEW_TIME && PREVIEW_TIME > 0 && (await sleep(PREVIEW_TIME));
   const filenameArr = filePath.split('/');
   const filename = filenameArr[filenameArr.length - 1];
   vscode.window.showInputBox({
     value: filename,
   });
-  await sleep(PREVIEW_TIME);
+  PREVIEW_TIME && PREVIEW_TIME > 0 && (await sleep(PREVIEW_TIME));
   const fullPath = path.resolve(WORK_DIR, filePath);
   const options: vscode.TextDocumentShowOptions = {};
   if (OpenFileOptions.selectRange) {
@@ -51,7 +51,7 @@ async function handleOpenFile(filePath: string, OpenFileOptions: OpenFileOptions
 }
 
 async function handleInput(content: string, startRow: number, startCol: number) {
-  await sleep(PREVIEW_TIME);
+  PREVIEW_TIME && PREVIEW_TIME > 0 && (await sleep(PREVIEW_TIME));
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     return;
@@ -71,7 +71,7 @@ async function handleInput(content: string, startRow: number, startCol: number) 
 }
 
 async function handleMoveCursor(toPosition: { row: number; col: number }) {
-  await sleep(PREVIEW_TIME);
+  PREVIEW_TIME && PREVIEW_TIME > 0 && (await sleep(PREVIEW_TIME));
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     return;
