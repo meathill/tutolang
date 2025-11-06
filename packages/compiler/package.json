@@ -1,0 +1,12 @@
+{
+  "name": "@tutolang/compiler",
+  "version": "0.1.0",
+  "description": "Tutolang compiler",
+  "main": "index.ts",
+  "scripts": {},
+  "dependencies": {
+    "@tutolang/types": "workspace:*",
+    "@tutolang/parser": "workspace:*",
+    "@tutolang/plugin-system": "workspace:*"
+  }
+}

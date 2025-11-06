@@ -1,3 +1,134 @@
 export type TutolangOptions = {
   language: string;
 }
+
+// AST Node Types
+export enum NodeType {
+  Say = 'say',
+  File = 'file',
+  Browser = 'browser',
+  Commit = 'commit',
+  Video = 'video',
+  Marker = 'marker',
+}
+
+export interface ASTNode {
+  type: NodeType;
+  line: number;
+  column: number;
+}
+
+export interface SayNode extends ASTNode {
+  type: NodeType.Say;
+  params?: {
+    image?: string;
+    video?: string;
+    browser?: string;
+  };
+  content: string;
+}
+
+export interface FileNode extends ASTNode {
+  type: NodeType.File;
+  mode?: 'i' | 'e'; // input | edit
+  path: string;
+  markers: MarkerNode[];
+}
+
+export interface BrowserNode extends ASTNode {
+  type: NodeType.Browser;
+  path: string;
+  markers: MarkerNode[];
+}
+
+export interface MarkerNode extends ASTNode {
+  type: NodeType.Marker;
+  markerType: 'start' | 'end' | 'line' | 'edit' | 'click' | 'highlight';
+  lineNumber?: number;
+  params?: Record<string, any>;
+  content?: string;
+}
+
+export interface CommitNode extends ASTNode {
+  type: NodeType.Commit;
+  commitHash: string;
+}
+
+export interface VideoNode extends ASTNode {
+  type: NodeType.Video;
+  path: string;
+}
+
+export type AST = ASTNode[];
+
+// Plugin System
+export interface PluginHooks {
+  beforeParse?: (code: string) => string | Promise<string>;
+  afterParse?: (ast: AST) => AST | Promise<AST>;
+  beforeCompile?: (ast: AST) => AST | Promise<AST>;
+  afterCompile?: (code: string) => string | Promise<string>;
+  beforeExecute?: () => void | Promise<void>;
+  afterExecute?: () => void | Promise<void>;
+}
+
+export interface Plugin {
+  name: string;
+  version?: string;
+  hooks: PluginHooks;
+}
+
+// Executor Interface
+export interface Executor {
+  name: string;
+  initialize(): Promise<void>;
+  cleanup(): Promise<void>;
+}
+
+export interface CodeExecutor extends Executor {
+  openFile(path: string): Promise<void>;
+  writeLine(content: string, lineNumber?: number): Promise<void>;
+  writeChar(char: string): Promise<void>;
+  highlightLine(lineNumber: number): Promise<void>;
+  moveCursor(line: number, column: number): Promise<void>;
+  startRecording(): Promise<void>;
+  stopRecording(): Promise<string>; // returns video path
+}
+
+export interface BrowserExecutor extends Executor {
+  navigate(url: string): Promise<void>;
+  click(selector: string): Promise<void>;
+  type(selector: string, text: string): Promise<void>;
+  highlight(selector: string): Promise<void>;
+  screenshot(): Promise<string>; // returns image path
+  startRecording(): Promise<void>;
+  stopRecording(): Promise<string>; // returns video path
+}
+
+export interface TerminalExecutor extends Executor {
+  execute(command: string): Promise<void>;
+  type(text: string): Promise<void>;
+  startRecording(): Promise<void>;
+  stopRecording(): Promise<string>; // returns video path
+}
+
+// Runtime Config
+export interface RuntimeConfig {
+  tts?: {
+    engine?: string;
+    voice?: string;
+    speed?: number;
+  };
+  ffmpeg?: {
+    path?: string;
+  };
+  screen?: {
+    width?: number;
+    height?: number;
+    orientation?: 'portrait' | 'landscape';
+  };
+  output?: {
+    format?: string;
+    quality?: number;
+    fps?: number;
+  };
+}

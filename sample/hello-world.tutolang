@@ -1,0 +1,37 @@
+# Example: Hello World Tutorial
+
+# Simple say statement
+say:
+    Hello, everyone! Welcome to this tutorial.
+    In this video, I'll show you how to create a simple web page.
+
+# Open and input a file
+file(i) 'index.html':
+    [start] Let's create our HTML file.
+    [l1] First, we declare the doctype.
+    [l2] Then we open the html tag.
+    [l5] The body tag will contain our content.
+    [l6] A simple heading.
+    [end] That's it for the HTML structure!
+
+# Show result in browser
+say(browser):
+    Now let's see how it looks in the browser.
+
+browser 'index.html':
+    [start] Here's our page!
+    [hl h1] This is our heading.
+    [end] Simple and clean!
+
+# Make some edits
+file(e) 'index.html':
+    [say] Let's add some style to make it look better.
+    [edit 6] We'll change the heading text.
+
+# Show updated result
+browser 'index.html':
+    [start] Much better now!
+    [end] That's all for this tutorial. Thanks for watching!
+
+say:
+    Don't forget to like and subscribe!

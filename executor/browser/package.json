@@ -1,0 +1,10 @@
+{
+  "name": "@tutolang/executor-browser",
+  "version": "0.1.0",
+  "description": "Browser executor for Tutolang",
+  "main": "src/index.ts",
+  "scripts": {},
+  "dependencies": {
+    "@tutolang/types": "workspace:*"
+  }
+}
