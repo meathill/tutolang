@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import TutolangCore from '@tutolang/core';
+import { runMockFromFile } from '@tutolang/core/mock';
 
 const argv = yargs(hideBin(process.argv))
   .scriptName('tutolang')
@@ -42,6 +43,12 @@ const argv = yargs(hideBin(process.argv))
       type: 'string',
       default: 'en',
     },
+    mock: {
+      alias: 'm',
+      describe: 'Mock mode: parse and print action plan without real execution',
+      type: 'boolean',
+      default: false,
+    },
   })
   .help()
   .version()
@@ -55,6 +62,7 @@ async function main() {
     config,
     verbose,
     language,
+    mock,
   } = argv;
 
   // TODO: Load config file if provided
@@ -72,6 +80,11 @@ async function main() {
   }
 
   try {
+    if (mock) {
+      const mockOutput = await runMockFromFile(input);
+      console.log(mockOutput);
+      return;
+    }
     if (compile) {
       // Only compile to TypeScript
       // TODO: Implement compile-only mode
@@ -94,4 +107,3 @@ async function main() {
 }
 
 main();
-

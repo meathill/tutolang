@@ -9,7 +9,8 @@
   "scripts": {
     "test": "jest tests/",
     "eslint": "eslint . --fix --ext=.ts",
-    "publish": ""
+    "publish": "",
+    "mock-sample": "pnpm ts-node packages/cli/index.ts -i sample/hello-world.tutolang --mock"
   },
   "repository": {
     "type": "git",

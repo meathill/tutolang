@@ -10,7 +10,13 @@
     "noUnusedLocals": false,
     "declaration": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@tutolang/*": [
+        "packages/*"
+      ]
+    }
   },
   "exclude": [
     "node_modules",
