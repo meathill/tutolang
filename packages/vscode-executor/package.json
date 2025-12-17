@@ -1,0 +1,13 @@
+{
+  "name": "@tutolang/vscode-executor",
+  "version": "0.1.0",
+  "description": "通过 VSCode 扩展驱动编辑器输入与录屏的 Executor",
+  "type": "module",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@tutolang/types": "workspace:*"
+  }
+}

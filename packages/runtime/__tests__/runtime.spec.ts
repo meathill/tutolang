@@ -119,7 +119,9 @@ process.exit(0);
   const hasAnullsrc = (args as string[]).some((value) => value.includes('anullsrc='));
   assert.ok(hasAnullsrc, '无音频时应使用 anullsrc 注入静音音轨');
 
-  const audioMapIndex = (args as string[]).findIndex((value, index) => value === '-map' && (args as string[])[index + 1] === '1:a:0');
+  const audioMapIndex = (args as string[]).findIndex(
+    (value, index) => value === '-map' && (args as string[])[index + 1] === '1:a:0',
+  );
   assert.ok(audioMapIndex >= 0, '应显式映射静音音轨');
 });
 
@@ -134,10 +136,11 @@ test('Runtime.inputLine 应为逐行解说生成语音并传入 createSlide', as
   };
 
   let slideAudio: string | undefined;
-  (runtime as unknown as { createSlide: (text: string, duration?: number, audioPath?: string) => Promise<void> }).createSlide =
-    async (_text, _duration, audioPath) => {
-      slideAudio = audioPath;
-    };
+  (
+    runtime as unknown as { createSlide: (text: string, duration?: number, audioPath?: string) => Promise<void> }
+  ).createSlide = async (_text, _duration, audioPath) => {
+    slideAudio = audioPath;
+  };
 
   const originalLog = console.log;
   console.log = () => undefined;
@@ -161,10 +164,11 @@ test('Runtime.editLine 应为逐行解说生成语音并传入 createSlide', asy
   };
 
   let slideAudio: string | undefined;
-  (runtime as unknown as { createSlide: (text: string, duration?: number, audioPath?: string) => Promise<void> }).createSlide =
-    async (_text, _duration, audioPath) => {
-      slideAudio = audioPath;
-    };
+  (
+    runtime as unknown as { createSlide: (text: string, duration?: number, audioPath?: string) => Promise<void> }
+  ).createSlide = async (_text, _duration, audioPath) => {
+    slideAudio = audioPath;
+  };
 
   const originalLog = console.log;
   console.log = () => undefined;
@@ -182,7 +186,9 @@ test('Runtime.file/inputLine 在可读取源码时应输出代码预览并高亮
   const sourcePath = join(workDir, 'index.html');
   await writeFile(
     sourcePath,
-    ['<!doctype html>', '<html>', '<head>', '</head>', '<body>', '  <h1>Hello World</h1>', '</body>', '</html>'].join('\n'),
+    ['<!doctype html>', '<html>', '<head>', '</head>', '<body>', '  <h1>Hello World</h1>', '</body>', '</html>'].join(
+      '\n',
+    ),
     'utf-8',
   );
 
@@ -192,8 +198,16 @@ test('Runtime.file/inputLine 在可读取源码时应输出代码预览并高亮
     '/tmp/tutolang-fake.wav';
 
   const slides: Array<{ text: string; layout?: string }> = [];
-  (runtime as unknown as { createSlide: (text: string, duration?: number, audioPath?: string, options?: { layout?: string }) => Promise<void> })
-    .createSlide = async (text, _duration, _audioPath, options) => {
+  (
+    runtime as unknown as {
+      createSlide: (
+        text: string,
+        duration?: number,
+        audioPath?: string,
+        options?: { layout?: string },
+      ) => Promise<void>;
+    }
+  ).createSlide = async (text, _duration, _audioPath, options) => {
     slides.push({ text, layout: options?.layout });
   };
 

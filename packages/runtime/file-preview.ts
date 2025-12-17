@@ -80,4 +80,3 @@ export function renderFilePreview(context: FileContext, options: FilePreviewOpti
   }
   return `${header}\n${body}`;
 }
-

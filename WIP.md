@@ -62,6 +62,18 @@
   - [x] 单测：`file + inputLine` 应输出包含源码行的 slide 文本，并携带 `layout=code`。
   - [x] 补齐 `sample/index.html`，让 `sample/hello-world.tutolang` 可直接展示代码。
 
+## 下一步（2025-12-17 VSCode 自动输入与录屏 MVP）
+- 目标：实现 `file(i)` 对应的「控制 VSCode 输入代码并录屏」能力，作为后续真实视频产出的基础。
+- 结论速记：
+  - VSCode 扩展 API 可稳定完成「打开文件/写入文本/移动光标/高亮」。
+  - VSCode 本身不提供官方的「屏幕录制」API；录屏仍需要外部工具（如 ffmpeg），由 Executor 侧编排启动/停止。
+- TODO：
+  - [x] 扩展侧：启动本地 RPC 服务（localhost），提供 open/type/move/highlight 等接口（不再轮询外部 server）。
+  - [x] Node 侧：实现 `VSCodeExecutor` 客户端（实现 `CodeExecutor`），通过 RPC 驱动扩展。
+  - [x] 录屏：实现基于 ffmpeg 的 `startRecording/stopRecording`（参数由配置注入，先支持录全屏/用户自配）。
+  - [x] Demo：提供最小可运行脚本（打开 sample/index.html 并逐行输入），便于人工验收。
+  - [x] 文档：补齐 `executor/vscode/README.md` 的配置与运行步骤（如何启动扩展、如何跑 demo、如何录屏）。
+
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
 2. **AST 与生成**：根据 `@tutolang/types` 扩充必要字段（如 marker 参数/类型），实现 CodeGenerator 输出调用 Runtime 的 TS 代码。

@@ -1,73 +1,42 @@
-# VSCode Executor
+# VSCode Executor（tutolang-vscode-extension）
 
-VS Code extension to mock human input.
+目标：通过本地 RPC 驱动 VSCode（打开文件/模拟输入/移动光标/高亮），为 `file(i)` 的「真实写代码 + 录屏」打基础。
 
-# tutolang-vscode-extension README
+## 配置
 
-This is the README for extension "tutolang-vscode-extension". After writing up a brief description, we recommend including the following sections.
+扩展提供以下设置：
 
-## Features
+- `tutolang.port`：RPC 端口（默认 `4001`）
+- `tutolang.token`：鉴权 token（可选，建议本机使用随机字符串；客户端通过 Header `x-tutolang-token` 传入）
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+## 运行方式（开发态）
 
-For example if there is an image subfolder under your extension project workspace:
+1. 打开本仓库根目录为 VSCode 工作区（否则相对路径无法解析）。
+2. 在 `executor/vscode/` 里按 VSCode 扩展的常规方式启动 Extension Host（Run Extension）。
+3. 扩展启动后会监听 `http://127.0.0.1:<port>/rpc`（以及 `GET /health`）。
 
-\!\[feature X\]\(images/feature-x.png\)
+## Demo（打开并逐行输入 sample/index.html）
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+在 Extension Host 已运行的情况下，执行：
 
-## Requirements
+```bash
+node --experimental-strip-types --experimental-transform-types scripts/vscode-demo.ts \
+  --baseUrl http://127.0.0.1:4001 \
+  --delayMs 12
+```
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## 录屏（可选）
 
-## Extension Settings
+录屏在 Node 侧由 `@tutolang/vscode-executor` 通过 ffmpeg 启动/停止，扩展本身不做屏幕录制。
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+1. 先准备好 ffmpeg 的参数模板（必须包含 `{output}` 占位符）。
+2. 通过环境变量传入 JSON 数组：
 
-For example:
+```bash
+export TUTOLANG_RECORD_ARGS_JSON='["-y", "...", "{output}"]'
+node --experimental-strip-types --experimental-transform-types scripts/vscode-demo.ts --record
+```
 
-This extension contributes the following settings:
-
-- `myExtension.enable`: Enable/disable this extension.
-- `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-- [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-- Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-- Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-- Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-- [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-- [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+提示：
+- macOS 上通常需要先用 `ffmpeg -f avfoundation -list_devices true -i \"\"` 找到屏幕采集设备名，再写入参数模板。
+- 建议输出统一编码（H.264 + AAC + yuv420p），方便后续用 concat 方式合并片段。

@@ -85,10 +85,17 @@ export interface Executor {
 }
 
 export interface CodeExecutor extends Executor {
-  openFile(path: string): Promise<void>;
-  writeLine(content: string, lineNumber?: number): Promise<void>;
-  writeChar(char: string): Promise<void>;
-  highlightLine(lineNumber: number): Promise<void>;
+  openFile(
+    path: string,
+    options?: { createIfMissing?: boolean; clear?: boolean; preview?: boolean; viewColumn?: number },
+  ): Promise<void>;
+  writeLine(
+    content: string,
+    lineNumber?: number,
+    options?: { delayMs?: number; appendNewLine?: boolean },
+  ): Promise<void>;
+  writeChar(char: string, options?: { delayMs?: number }): Promise<void>;
+  highlightLine(lineNumber: number, options?: { durationMs?: number }): Promise<void>;
   moveCursor(line: number, column: number): Promise<void>;
   startRecording(): Promise<void>;
   stopRecording(): Promise<string>; // returns video path

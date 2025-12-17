@@ -19,7 +19,22 @@
         "command": "tutolang-vscode-extension.codeDemo",
         "title": "Code Demo"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Tutolang",
+      "properties": {
+        "tutolang.port": {
+          "type": "number",
+          "default": 4001,
+          "description": "tutolang VSCode Executor RPC 服务端口（localhost）"
+        },
+        "tutolang.token": {
+          "type": "string",
+          "default": "",
+          "description": "RPC 调用鉴权 token（可选，建议本机使用随机字符串）"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",
@@ -33,6 +48,7 @@
     "@types/vscode": "^1.107.0",
     "@vscode/test-electron": "^2.5.2",
     "glob": "^13.0.0",
-    "mocha": "^11.7.5"
+    "mocha": "^11.7.5",
+    "typescript": "^5.9.3"
   }
 }

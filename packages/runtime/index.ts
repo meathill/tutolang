@@ -89,7 +89,9 @@ export class Runtime {
     const context = this.fileContexts.get(path);
     if (context?.lines && context.lines.length > 0) {
       context.revealedLineCount = context.lines.length;
-      await this.createSlide(renderFilePreview(context, { screenHeight: this.config.screen?.height }), 1.2, undefined, { layout: 'code' });
+      await this.createSlide(renderFilePreview(context, { screenHeight: this.config.screen?.height }), 1.2, undefined, {
+        layout: 'code',
+      });
     } else {
       await this.createSlide(`文件结束：${path}`, 1.2);
     }
@@ -100,9 +102,11 @@ export class Runtime {
     this.log('inputLine', `${path}:${lineNumber ?? '?'} ${text ?? ''}`.trim());
     const context = this.fileContexts.get(path);
     const codeLine =
-      context?.lines && context.lines.length > 0 && lineNumber !== undefined ? context.lines[lineNumber - 1] : undefined;
+      context?.lines && context.lines.length > 0 && lineNumber !== undefined
+        ? context.lines[lineNumber - 1]
+        : undefined;
     if (this.codeExecutor) {
-      await this.codeExecutor.writeLine(codeLine ?? (text ?? ''), lineNumber);
+      await this.codeExecutor.writeLine(codeLine ?? text ?? '', lineNumber);
     }
     const audioPath = await this.generateSpeechAudio(text);
 
@@ -114,7 +118,12 @@ export class Runtime {
         context.revealedLineCount = context.lines.length;
       }
       await this.createSlide(
-        renderFilePreview(context, { highlightLine: lineNumber, narration: text, includeNarration: true, screenHeight: this.config.screen?.height }),
+        renderFilePreview(context, {
+          highlightLine: lineNumber,
+          narration: text,
+          includeNarration: true,
+          screenHeight: this.config.screen?.height,
+        }),
         1.4,
         audioPath,
         { layout: 'code' },
@@ -130,14 +139,19 @@ export class Runtime {
     const context = this.fileContexts.get(path);
     const codeLine = context?.lines && context.lines.length > 0 ? context.lines[lineNumber - 1] : undefined;
     if (this.codeExecutor) {
-      await this.codeExecutor.writeLine(codeLine ?? (text ?? ''), lineNumber);
+      await this.codeExecutor.writeLine(codeLine ?? text ?? '', lineNumber);
     }
     const audioPath = await this.generateSpeechAudio(text);
 
     if (context?.lines && context.lines.length > 0) {
       context.revealedLineCount = context.lines.length;
       await this.createSlide(
-        renderFilePreview(context, { highlightLine: lineNumber, narration: text, includeNarration: true, screenHeight: this.config.screen?.height }),
+        renderFilePreview(context, {
+          highlightLine: lineNumber,
+          narration: text,
+          includeNarration: true,
+          screenHeight: this.config.screen?.height,
+        }),
         1.4,
         audioPath,
         { layout: 'code' },
@@ -221,7 +235,12 @@ export class Runtime {
     }
   }
 
-  private async createSlide(text: string, duration?: number, audioPath?: string, options: SlideOptions = {}): Promise<void> {
+  private async createSlide(
+    text: string,
+    duration?: number,
+    audioPath?: string,
+    options: SlideOptions = {},
+  ): Promise<void> {
     if (!this.config.renderVideo) return;
     await this.ensureTempDir();
     const segmentPath = join(this.tempDir!, `${this.videoSegments.length.toString().padStart(4, '0')}.mp4`);

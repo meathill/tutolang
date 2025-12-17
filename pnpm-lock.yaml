@@ -47,6 +47,9 @@ importers:
       mocha:
         specifier: ^11.7.5
         version: 11.7.5
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   packages/cli:
     dependencies:
@@ -93,6 +96,12 @@ importers:
   packages/types: {}
 
   packages/utils: {}
+
+  packages/vscode-executor:
+    dependencies:
+      '@tutolang/types':
+        specifier: workspace:*
+        version: link:../types
 
 packages:
 
@@ -640,6 +649,11 @@ packages:
   supports-color@8.1.1:
     resolution: {integrity: sha512-MpUEN2OodtUzxvKQl72cUF7RQ5EiHsGvSsVG0ia9c5RbWGL2CI4C7EpPS8UTBIplnlzZiNuV56w+FuNxy3ty2Q==}
     engines: {node: '>=10'}
+
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
 
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
@@ -1232,6 +1246,8 @@ snapshots:
   supports-color@8.1.1:
     dependencies:
       has-flag: 4.0.0
+
+  typescript@5.9.3: {}
 
   undici-types@7.16.0: {}
 

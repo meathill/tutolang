@@ -1,167 +1,182 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
-import axios from 'axios';
-import { REQUEST_INTERVAL, BASE_URL, WORK_DIR, PREVIEW_TIME } from './constants';
-import { OpenFileCommand, OpenFileOptions, InputCommand, MoveCursorCommand, CommandType } from './types';
+import * as path from 'node:path';
+import { startRpcServer, type RpcHandlers } from './rpc-server';
 
-const defaultOptionsForHandleOpenFile = {
-  selectRange: {
-    startPosition: { row: 0, col: 0 },
-    endPosition: { row: 0, col: 0 },
-  },
-  preview: false,
-  viewColumn: 1,
+type OpenFileParams = {
+  path: string;
+  options?: { createIfMissing?: boolean; clear?: boolean; preview?: boolean; viewColumn?: number };
 };
 
-function sleep(delay = 10) {
-  return new Promise(resolve => setTimeout(resolve, delay));
+type TypeTextParams = {
+  text: string;
+  delayMs?: number;
+};
+
+type SetCursorParams = {
+  line: number;
+  column: number;
+};
+
+type HighlightLineParams = {
+  line: number;
+  durationMs?: number;
+};
+
+function sleep(delayMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
-async function handleOpenFile(filePath: string, OpenFileOptions: OpenFileOptions = defaultOptionsForHandleOpenFile) {
-  PREVIEW_TIME && PREVIEW_TIME > 0 && (await sleep(PREVIEW_TIME));
-  const filenameArr = filePath.split('/');
-  const filename = filenameArr[filenameArr.length - 1];
-  vscode.window.showInputBox({
-    value: filename,
-  });
-  PREVIEW_TIME && PREVIEW_TIME > 0 && (await sleep(PREVIEW_TIME));
-  const fullPath = path.resolve(WORK_DIR, filePath);
-  const options: vscode.TextDocumentShowOptions = {};
-  if (OpenFileOptions.selectRange) {
-    options.selection = new vscode.Range(
-      new vscode.Position(OpenFileOptions.selectRange.startPosition.row, OpenFileOptions.selectRange.startPosition.col),
-      new vscode.Position(OpenFileOptions.selectRange.endPosition.row, OpenFileOptions.selectRange.endPosition.col)
-    );
-  }
-  if (OpenFileOptions.preview !== undefined) {
-    options.preview = OpenFileOptions.preview;
-  }
-  if (OpenFileOptions.viewColumn) {
-    options.viewColumn = {
-      1: vscode.ViewColumn.One,
-      2: vscode.ViewColumn.Two,
-      3: vscode.ViewColumn.Three,
-    }[OpenFileOptions.viewColumn];
-  }
-  await vscode.window.showTextDocument(vscode.Uri.file(fullPath), options);
-  const editor = vscode.window.activeTextEditor;
-  if (editor) {
-    console.log(editor.document.getText());
-  }
+function getFirstWorkspaceRoot(): string | undefined {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  return folder?.uri.fsPath;
 }
 
-async function handleInput(content: string, startRow: number, startCol: number) {
-  PREVIEW_TIME && PREVIEW_TIME > 0 && (await sleep(PREVIEW_TIME));
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    return;
+function resolveFileUri(filePath: string): vscode.Uri {
+  if (path.isAbsolute(filePath)) return vscode.Uri.file(filePath);
+  const root = getFirstWorkspaceRoot();
+  if (!root) {
+    throw new Error('未打开工作区，无法解析相对路径');
   }
-  let curRow = startRow;
-  let curCol = startCol;
-  for (let i = 0; i < content.length; i++) {
-    await sleep();
-    await editor.edit(editBuilder => {
-      editBuilder.insert(new vscode.Position(curRow, curCol), content[i]);
-    });
-    if (content[i] === '\n') {
-      curRow = curRow + 1;
-    }
-    curCol = curCol + 1;
-  }
+  return vscode.Uri.file(path.resolve(root, filePath));
 }
 
-async function handleMoveCursor(toPosition: { row: number; col: number }) {
-  PREVIEW_TIME && PREVIEW_TIME > 0 && (await sleep(PREVIEW_TIME));
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    return;
-  }
-  const fromPosition = {
-    row: editor.selection.active.line,
-    col: editor.selection.active.character,
-  };
-
-  while (fromPosition.row < toPosition.row) {
-    fromPosition.row = Number(fromPosition.row) + 1;
-    await sleep();
-    editor.selection = new vscode.Selection(
-      new vscode.Position(fromPosition.row, fromPosition.col),
-      new vscode.Position(fromPosition.row, fromPosition.col)
-    );
-  }
-
-  while (fromPosition.row > toPosition.row) {
-    fromPosition.row = Number(fromPosition.row) - 1;
-    await sleep();
-    editor.selection = new vscode.Selection(
-      new vscode.Position(fromPosition.row, fromPosition.col),
-      new vscode.Position(fromPosition.row, fromPosition.col)
-    );
-  }
-
-  while (fromPosition.col < toPosition.col) {
-    fromPosition.col = Number(fromPosition.col) + 1;
-    await sleep();
-    editor.selection = new vscode.Selection(
-      new vscode.Position(fromPosition.row, fromPosition.col),
-      new vscode.Position(fromPosition.row, fromPosition.col)
-    );
-  }
-
-  while (fromPosition.col > toPosition.col) {
-    fromPosition.col = Number(fromPosition.col) - 1;
-    await sleep();
-    editor.selection = new vscode.Selection(
-      new vscode.Position(fromPosition.row, fromPosition.col),
-      new vscode.Position(fromPosition.row, fromPosition.col)
-    );
-  }
+function getViewColumn(viewColumn?: number): vscode.ViewColumn | undefined {
+  if (!viewColumn) return undefined;
+  if (viewColumn === 1) return vscode.ViewColumn.One;
+  if (viewColumn === 2) return vscode.ViewColumn.Two;
+  if (viewColumn === 3) return vscode.ViewColumn.Three;
+  return vscode.ViewColumn.Active;
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Congratulations, your extension "tutolang-vscode-extension" is now active!');
+  const output = vscode.window.createOutputChannel('Tutolang');
+  output.appendLine('tutolang-vscode-extension 已启动');
 
-  const exec = async (commands: Array<OpenFileCommand | InputCommand | MoveCursorCommand>) => {
-    for (let i = 0; i < commands.length; i++) {
-      const command = commands[i];
-      switch (command.type) {
-        case CommandType.OpenFile:
-          await handleOpenFile(command.filePath, command.openFileOptions);
-          break;
-        case CommandType.Input:
-          await handleInput(command.content, command.position.row, command.position.col);
-          break;
-        case CommandType.MoveCursor:
-          await handleMoveCursor(command.toPosition);
-          break;
-        default:
-          break;
+  const decoration = vscode.window.createTextEditorDecorationType({
+    isWholeLine: true,
+    backgroundColor: 'rgba(255, 255, 0, 0.18)',
+  });
+
+  async function openFileRpc(params: unknown): Promise<unknown> {
+    const parsed = params as OpenFileParams;
+    if (!parsed?.path) throw new Error('openFile 缺少 path');
+
+    const uri = resolveFileUri(parsed.path);
+
+    if (parsed.options?.createIfMissing) {
+      try {
+        await vscode.workspace.fs.stat(uri);
+      } catch {
+        await vscode.workspace.fs.writeFile(uri, new Uint8Array());
       }
     }
 
-    roundRobin();
-  };
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(doc, {
+      preview: parsed.options?.preview ?? false,
+      viewColumn: getViewColumn(parsed.options?.viewColumn),
+    });
 
-  function roundRobin() {
-    let key = 0;
-    let timer = setInterval(async () => {
-      key = key + 1;
-      const {
-        data: { commands },
-      } = await axios.get(`${BASE_URL}/query?key=${key}`);
-      if (commands.length > 0) {
-        clearInterval(timer);
-        exec(commands);
-      }
-    }, REQUEST_INTERVAL);
+    if (parsed.options?.clear) {
+      const lastLine = Math.max(0, doc.lineCount - 1);
+      const fullRange = new vscode.Range(new vscode.Position(0, 0), doc.lineAt(lastLine).range.end);
+      await editor.edit((editBuilder) => editBuilder.replace(fullRange, ''), { undoStopAfter: false, undoStopBefore: false });
+      editor.selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 0));
+    }
+
+    return { ok: true, activePath: editor.document.uri.fsPath };
   }
 
-  roundRobin();
+  async function typeTextRpc(params: unknown): Promise<unknown> {
+    const parsed = params as TypeTextParams;
+    const text = parsed?.text ?? '';
+    const delayMs = Math.max(0, parsed?.delayMs ?? 15);
 
-  let disposable = vscode.commands.registerCommand('tutolang-vscode-extension.codeDemo', async () => {
-    vscode.window.showInformationMessage(`Hello, I'm Oreo!`);
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) throw new Error('当前没有可输入的编辑器');
+
+    for (const ch of text) {
+      await vscode.commands.executeCommand('type', { text: ch });
+      if (delayMs > 0) await sleep(delayMs);
+    }
+
+    return { ok: true };
+  }
+
+  async function setCursorRpc(params: unknown): Promise<unknown> {
+    const parsed = params as SetCursorParams;
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) throw new Error('当前没有可移动光标的编辑器');
+
+    const line = Number.isFinite(parsed?.line) ? Math.max(0, Math.floor(parsed.line)) : 0;
+    const column = Number.isFinite(parsed?.column) ? Math.max(0, Math.floor(parsed.column)) : 0;
+
+    const clampedLine = Math.min(line, Math.max(0, editor.document.lineCount - 1));
+    const maxColumn = editor.document.lineAt(clampedLine).text.length;
+    const clampedColumn = Math.min(column, maxColumn);
+    const pos = new vscode.Position(clampedLine, clampedColumn);
+    editor.selection = new vscode.Selection(pos, pos);
+    editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+    return { ok: true };
+  }
+
+  async function highlightLineRpc(params: unknown): Promise<unknown> {
+    const parsed = params as HighlightLineParams;
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) throw new Error('当前没有可高亮的编辑器');
+    const line = Number.isFinite(parsed?.line) ? Math.max(0, Math.floor(parsed.line)) : 0;
+    const clampedLine = Math.min(line, Math.max(0, editor.document.lineCount - 1));
+    const range = editor.document.lineAt(clampedLine).range;
+    editor.setDecorations(decoration, [range]);
+    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+
+    const duration = parsed?.durationMs ? Math.max(0, Math.floor(parsed.durationMs)) : 800;
+    if (duration > 0) {
+      await sleep(duration);
+      editor.setDecorations(decoration, []);
+    }
+
+    return { ok: true };
+  }
+
+  function getConfig() {
+    const config = vscode.workspace.getConfiguration('tutolang');
+    const port = config.get<number>('port') ?? 4001;
+    const token = config.get<string>('token') || undefined;
+    return { port, token };
+  }
+
+  const { port, token } = getConfig();
+  const handlers: RpcHandlers = {
+    ping: async () => ({ ok: true }),
+    getWorkspaceRoot: async () => ({ root: getFirstWorkspaceRoot() }),
+    openFile: openFileRpc,
+    typeText: typeTextRpc,
+    setCursor: setCursorRpc,
+    highlightLine: highlightLineRpc,
+  };
+
+  const server = startRpcServer({
+    port,
+    token,
+    handlers,
+    log(message) {
+      output.appendLine(message);
+    },
   });
 
+  context.subscriptions.push(
+    output,
+    {
+      dispose() {
+        server.dispose();
+      },
+    },
+  );
+
+  const disposable = vscode.commands.registerCommand('tutolang-vscode-extension.codeDemo', async () => {
+    vscode.window.showInformationMessage('Tutolang VSCode Executor 已启动');
+  });
   context.subscriptions.push(disposable);
 }
 

@@ -21,24 +21,24 @@ export class VSCodeExecutor implements CodeExecutor {
     }
   }
 
-  async openFile(path: string): Promise<void> {
+  async openFile(path: string, _options?: { createIfMissing?: boolean; clear?: boolean; preview?: boolean; viewColumn?: number }): Promise<void> {
     // TODO: Open file in VSCode
     // Send command to VSCode extension
     this.currentFile = path;
   }
 
-  async writeLine(content: string, lineNumber?: number): Promise<void> {
+  async writeLine(_content: string, _lineNumber?: number, _options?: { delayMs?: number; appendNewLine?: boolean }): Promise<void> {
     // TODO: Write a line of code
     // Simulate typing character by character
     // Or insert at specific line number
   }
 
-  async writeChar(char: string): Promise<void> {
+  async writeChar(_char: string, _options?: { delayMs?: number }): Promise<void> {
     // TODO: Type a single character
     // For realistic typing effect
   }
 
-  async highlightLine(lineNumber: number): Promise<void> {
+  async highlightLine(_lineNumber: number, _options?: { durationMs?: number }): Promise<void> {
     // TODO: Highlight specific line
     // Use VSCode selection API
   }
