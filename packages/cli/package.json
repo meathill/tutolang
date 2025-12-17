@@ -2,9 +2,7 @@
   "name": "@tutolang/cli",
   "version": "0.1.0",
   "dependencies": {
-    "@tutolang/core": "workspace:*"
-  },
-  "devDependencies": {
+    "@tutolang/core": "workspace:*",
     "yargs": "^17.6.2"
   },
   "type": "module"

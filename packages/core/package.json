@@ -1,5 +1,10 @@
 {
   "name": "@tutolang/core",
   "version": "0.1.0",
-  "main": "./index.ts"
+  "type": "module",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./mock": "./mock.ts"
+  }
 }

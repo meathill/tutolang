@@ -80,16 +80,7 @@ const argv = yargs(hideBin(process.argv))
   .parseSync();
 
 async function main() {
-  const {
-    input,
-    output,
-    compile,
-    config,
-    verbose,
-    language,
-    mock,
-    mockFormat,
-  } = argv;
+  const { input, output, compile, config, verbose, language, mock, mockFormat } = argv;
 
   const Core = await loadCore();
   // TODO: Load config file if provided

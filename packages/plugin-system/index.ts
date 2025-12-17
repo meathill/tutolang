@@ -1,4 +1,4 @@
-import { Plugin, PluginHooks, AST } from '@tutolang/types';
+import type { Plugin, PluginHooks, AST } from '@tutolang/types';
 
 export class PluginManager {
   private plugins: Plugin[] = [];

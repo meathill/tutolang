@@ -19,7 +19,18 @@
 - Parser MVP：行级解析支持 say/file/browser/commit/video，marker 支持 start/end/lN/edit/hl/click；忽略行注释与块注释。
 - 测试：添加 parser 单测 + mock e2e 快照；jest 关闭 watchman；测试脚本改为全局 `jest`。
 - 路径别名：tsconfig/jest 支持 `@tutolang/*`。
-- 本地运行：新增包声明与 symlink，提供 `pnpm mock-sample`（若 Node 25 + ts-node 组合有加载限制，可用 `pnpm test -- tests/mock-e2e.spec.ts` 查看同样输出）。
+- 本地运行：新增包声明与 symlink，`pnpm mock-sample`/`pnpm test` 直接在 Node 24 下输出 mock 结果，无需 ts-node。
+- 零转译改造：Node 24 LTS + `node --test --experimental-strip-types --experimental-transform-types`，移除 Jest/ts-node，mock runner 改为 TS。
+
+## 当前任务（2025-12-17）
+- 目标：切到 Node.js 24 LTS，全面零转译。
+- TODO：
+  - [x] 统一 engines 到 Node 24（限制 <25）。
+  - [x] 移除 ts-node/ts-jest/babel-jest 依赖，删掉 jest 配置。
+  - [x] 测试改用 `node --test` + `--experimental-strip-types`，重写现有用例。
+  - [x] `pnpm mock-sample` 改为原生 Node 跑 `.ts`，移除 CJS/ts-node 入口。
+  - [x] 各 package 补上 `type: "module"` 与 TS 入口声明，确保零转译可运行。
+  - [x] README/参考文档更新运行方式说明，移除 ts-node 相关提示。
 
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。

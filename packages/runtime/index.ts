@@ -1,4 +1,4 @@
-import { RuntimeConfig, CodeExecutor, BrowserExecutor } from '@tutolang/types';
+import type { RuntimeConfig, CodeExecutor, BrowserExecutor } from '@tutolang/types';
 
 export class Runtime {
   private config: RuntimeConfig;

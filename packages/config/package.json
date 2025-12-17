@@ -1,6 +1,10 @@
 {
   "name": "@tutolang/config",
   "version": "0.1.0",
-  "dependencies": {
-  }
+  "type": "module",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {}
 }

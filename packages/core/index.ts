@@ -1,4 +1,4 @@
-import { TutolangOptions } from '@tutolang/types';
+import type { TutolangOptions } from '@tutolang/types';
 import { Compiler } from '@tutolang/compiler';
 import { Runtime } from '@tutolang/runtime';
 

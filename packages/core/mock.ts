@@ -1,14 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import {
-  AST,
-  ASTNode,
-  BrowserNode,
-  FileNode,
-  MarkerNode,
-  NodeType,
-  SayNode,
-} from '@tutolang/types';
+import type { AST, ASTNode, BrowserNode, FileNode, MarkerNode, SayNode } from '@tutolang/types';
+import { NodeType } from '@tutolang/types';
 import { Parser } from '@tutolang/parser';
 
 export type Action =

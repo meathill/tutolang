@@ -2,7 +2,11 @@
   "name": "@tutolang/plugin-system",
   "version": "0.1.0",
   "description": "Tutolang plugin system",
-  "main": "index.ts",
+  "type": "module",
+  "main": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
   "scripts": {},
   "dependencies": {
     "@tutolang/types": "workspace:*"

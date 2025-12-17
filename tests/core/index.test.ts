@@ -1,7 +1,8 @@
-import {describe, expect, test} from "@jest/globals";
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('sum', () => {
-  test('should be 3', () => {
-    expect(1 + 2).toBe(3);
+  it('should be 3', () => {
+    assert.strictEqual(1 + 2, 3);
   });
 });

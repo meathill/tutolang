@@ -1,11 +1,11 @@
-import { describe, expect, test } from '@jest/globals';
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { runMockFromFile } from '@tutolang/core/mock';
 
 describe('CLI mock output (hello-world)', () => {
-  test('should produce human-readable action list', async () => {
+  it('should produce human-readable action list', async () => {
     const result = await runMockFromFile('sample/hello-world.tutolang');
-    expect(result.text).toMatchInlineSnapshot(`
-"1. 语音播报：Hello, everyone! Welcome to this tutorial. In this video, I'll show you how to create a simple web page.
+    const expected = `1. 语音播报：Hello, everyone! Welcome to this tutorial. In this video, I'll show you how to create a simple web page.
 2. 打开文件：index.html（模式：输入 i）
 3. 语音播报：Let's create our HTML file.
 4. 输入行 1：First, we declare the doctype.
@@ -29,7 +29,8 @@ describe('CLI mock output (hello-world)', () => {
 22. 语音播报：Much better now!
 23. 语音播报：That's all for this tutorial. Thanks for watching!
 24. 浏览器讲解结束：index.html
-25. 语音播报：Don't forget to like and subscribe!"
-`);
+25. 语音播报：Don't forget to like and subscribe!`;
+
+    assert.strictEqual(result.text, expected);
   });
 });

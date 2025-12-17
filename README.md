@@ -2,6 +2,12 @@
 
 A script for making Programing Tutorial videos.
 
+运行环境
+--------
+
+- Node.js 24 LTS（使用 `--experimental-strip-types --experimental-transform-types` 原生执行 TypeScript）。
+- 无需 Babel/ts-node/ts-jest，保持零转译、纯 ESM。
+
 
 Synopsis
 --------
@@ -64,12 +70,12 @@ How to use
 Mock mode
 ---------
 
-快速验证脚本、不触发 TTS/录屏：
+快速验证脚本、不触发 TTS/录屏（零转译，直接用 Node.js 24 跑 `.ts`）：
 
 ```bash
 pnpm mock-sample
-# or
-pnpm ts-node packages/cli/index.ts -i sample/hello-world.tutolang --mock --mockFormat both
+# 或直接跑 CLI
+node --experimental-strip-types --experimental-transform-types packages/cli/index.ts -i sample/hello-world.tutolang --mock --mockFormat both
 ```
 
 控制台会输出按脚本顺序的语义化动作列表，可选同时输出 JSON。

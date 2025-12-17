@@ -1,4 +1,4 @@
-import { AST, Plugin } from '@tutolang/types';
+import type { AST, Plugin } from '@tutolang/types';
 import { Parser } from '@tutolang/parser';
 import { PluginManager } from '@tutolang/plugin-system';
 

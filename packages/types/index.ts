@@ -1,6 +1,6 @@
 export type TutolangOptions = {
   language: string;
-}
+};
 
 // AST Node Types
 export enum NodeType {

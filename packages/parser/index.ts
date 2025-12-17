@@ -1,14 +1,5 @@
-import {
-  AST,
-  ASTNode,
-  BrowserNode,
-  CommitNode,
-  FileNode,
-  MarkerNode,
-  NodeType,
-  SayNode,
-  VideoNode,
-} from '@tutolang/types';
+import type { AST, ASTNode, BrowserNode, CommitNode, FileNode, MarkerNode, SayNode, VideoNode } from '@tutolang/types';
+import { NodeType } from '@tutolang/types';
 
 type ParseContext = {
   line: number;
