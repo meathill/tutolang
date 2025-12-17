@@ -61,7 +61,7 @@ describe('Parser (MVP subset)', () => {
   });
 
   it('should throw when file path missing', () => {
-    const p = new Parser("file(i):\n  [start] hi");
+    const p = new Parser('file(i):\n  [start] hi');
     assert.throws(() => p.parse(), /\[ParseError\] file 语句缺少路径/);
   });
 

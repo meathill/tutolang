@@ -1,4 +1,14 @@
-import type { AST, ASTNode, BrowserNode, CommitNode, FileNode, MarkerNode, SayNode, VideoNode, Plugin } from '@tutolang/types';
+import type {
+  AST,
+  ASTNode,
+  BrowserNode,
+  CommitNode,
+  FileNode,
+  MarkerNode,
+  SayNode,
+  VideoNode,
+  Plugin,
+} from '@tutolang/types';
 import { NodeType } from '@tutolang/types';
 import { Parser } from '@tutolang/parser';
 import { PluginManager } from '@tutolang/plugin-system';
@@ -25,7 +35,10 @@ export class Compiler {
 
 export class CodeGenerator {
   generate(ast: AST): string {
-    const body = ast.map((node) => this.generateNode(node)).filter(Boolean).join('\n');
+    const body = ast
+      .map((node) => this.generateNode(node))
+      .filter(Boolean)
+      .join('\n');
     return `${this.generateImports()}
 
 export async function run(runtime = new Runtime(), options: { output?: string } = {}) {

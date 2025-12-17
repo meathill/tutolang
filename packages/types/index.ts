@@ -116,12 +116,22 @@ export interface RuntimeConfig {
   renderVideo?: boolean;
   tempDir?: string;
   tts?: {
-    engine?: string;
-    voice?: string;
-    speed?: number;
+    engine?: 'gemini';
+    model?: string;
+    voiceName?: string;
+    languageCode?: string;
+    speakingRate?: number;
+    pitch?: number;
+    sampleRateHertz?: number;
+    apiKey?: string;
+    accessToken?: string;
+    projectId?: string;
+    region?: string;
+    endpoint?: string;
   };
   ffmpeg?: {
     path?: string;
+    ffprobePath?: string;
   };
   screen?: {
     width?: number;

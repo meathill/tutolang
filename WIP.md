@@ -29,6 +29,14 @@
   - [x] Runtime MVP：提供 say/file/browser/video/merge 的 stub，实现日志化输出，便于 e2e。
   - [x] CLI：打通 `compileFile/executeFile` 的输入/输出路径（写入生成的 TS 并可直接执行）。
 
+## 本次任务（2025-12-17）
+- 目标：落地 Runtime 的 TTS 能力，集成 Gemini-2.5-flash-preview-tts，生成可用语音片段并与视频片段衔接。
+- TODO：
+  - [x] 梳理 Gemini TTS 接口与鉴权方式，确定默认配置（模型、地区、鉴权、编码）。
+  - [x] 实现可配置的 TTS 客户端（HTTP 请求、错误处理、音频落盘）。
+  - [x] 将 `runtime.say` 接入 TTS，生成包含语音的片段并参与 `merge`。
+  - [x] 补充单测（TTS 请求构造/落盘）与使用提示。
+
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
 2. **AST 与生成**：根据 `@tutolang/types` 扩充必要字段（如 marker 参数/类型），实现 CodeGenerator 输出调用 Runtime 的 TS 代码。

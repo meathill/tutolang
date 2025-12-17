@@ -35,10 +35,22 @@ describe('Compiler + Runtime MVP', () => {
     await run(runtime);
     const actions = runtime.getActions();
 
-    assert.ok(actions.find((a) => a.includes('[say] Hello, everyone!')), '缺少开场解说');
-    assert.ok(actions.find((a) => a.includes('[inputLine] index.html:1')), '缺少文件输入行动作');
-    assert.ok(actions.find((a) => a.includes('[highlight] h1')), '缺少浏览器高亮动作');
-    assert.ok(actions.find((a) => a.includes('like and subscribe')), '缺少收尾解说');
+    assert.ok(
+      actions.find((a) => a.includes('[say] Hello, everyone!')),
+      '缺少开场解说',
+    );
+    assert.ok(
+      actions.find((a) => a.includes('[inputLine] index.html:1')),
+      '缺少文件输入行动作',
+    );
+    assert.ok(
+      actions.find((a) => a.includes('[highlight] h1')),
+      '缺少浏览器高亮动作',
+    );
+    assert.ok(
+      actions.find((a) => a.includes('like and subscribe')),
+      '缺少收尾解说',
+    );
 
     rmSync(target, { force: true });
   });

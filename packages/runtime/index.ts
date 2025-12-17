@@ -1,9 +1,12 @@
 import type { RuntimeConfig, CodeExecutor, BrowserExecutor } from '@tutolang/types';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
+import { TTS } from './tts.ts';
+
+export { TTS } from './tts.ts';
 
 /**
  * Runtime MVP：以日志形式记录动作，方便验证编译输出。
@@ -13,6 +16,7 @@ export class Runtime {
   private codeExecutor?: CodeExecutor;
   private browserExecutor?: BrowserExecutor;
   private videoSegments: string[] = [];
+  private tts: TTS;
   private actions: string[] = [];
   private tempDir?: string;
 
@@ -21,6 +25,7 @@ export class Runtime {
       renderVideo: false,
       ...config,
     };
+    this.tts = new TTS({ ...config.tts, tempDir: config.tempDir });
   }
 
   setCodeExecutor(executor: CodeExecutor): void {
@@ -38,7 +43,16 @@ export class Runtime {
   async say(content: string, options?: { image?: string; video?: string; browser?: string }): Promise<void> {
     const extra = options ? ` ${JSON.stringify(options)}` : '';
     this.log('say', `${content}${extra}`);
-    await this.createSlide(content);
+    let audioPath: string | null = null;
+    if (this.config.renderVideo) {
+      try {
+        audioPath = await this.tts.generate(content);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(`[tts] 生成失败：${reason}`);
+      }
+    }
+    await this.createSlide(content, undefined, audioPath ?? undefined);
   }
 
   async file(path: string, options?: { mode?: 'i' | 'e' }): Promise<void> {
@@ -118,18 +132,7 @@ export class Runtime {
     const listPath = join(this.tempDir!, 'concat.txt');
     const listContent = this.videoSegments.map((p) => `file ${p}`).join('\n');
     await writeFile(listPath, listContent, 'utf-8');
-    await this.runFFmpeg([
-      '-y',
-      '-f',
-      'concat',
-      '-safe',
-      '0',
-      '-i',
-      listPath,
-      '-c',
-      'copy',
-      outputPath,
-    ]);
+    await this.runFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', outputPath]);
   }
 
   private log(action: string, message: string): void {
@@ -139,7 +142,7 @@ export class Runtime {
     console.log(line);
   }
 
-  private async createSlide(text: string, duration = 2): Promise<void> {
+  private async createSlide(text: string, duration?: number, audioPath?: string): Promise<void> {
     if (!this.config.renderVideo) return;
     await this.ensureTempDir();
     const segmentPath = join(this.tempDir!, `${this.videoSegments.length.toString().padStart(4, '0')}.mp4`);
@@ -148,51 +151,129 @@ export class Runtime {
     await writeFile(textFile, normalized, 'utf-8');
     const font = '/System/Library/Fonts/Supplemental/Arial.ttf';
     const draw = `drawtext=fontfile=${font}:textfile=${textFile.replace(/:/g, '\\:')}:fontcolor=white:fontsize=32:box=1:boxcolor=0x00000099:boxborderw=20:x=(w-text_w)/2:y=(h-text_h)/2:line_spacing=6`;
-    await this.runFFmpeg([
+    let targetDuration = duration ?? 2;
+    if (audioPath) {
+      const audioDuration = await this.getMediaDuration(audioPath);
+      if (audioDuration) {
+        targetDuration = Math.max(targetDuration, audioDuration + 0.2);
+      } else if (duration === undefined) {
+        targetDuration = Math.max(targetDuration, this.estimateDuration(text));
+      }
+    } else if (duration === undefined) {
+      targetDuration = this.estimateDuration(text);
+    }
+
+    const args: string[] = [
       '-y',
       '-f',
       'lavfi',
       '-i',
-      `color=size=${this.config.screen?.width ?? 1280}x${this.config.screen?.height ?? 720}:duration=${duration}:rate=30:color=black`,
+      `color=size=${this.config.screen?.width ?? 1280}x${this.config.screen?.height ?? 720}:duration=${targetDuration}:rate=30:color=black`,
       '-vf',
       draw,
-      '-c:v',
-      'libx264',
-      '-pix_fmt',
-      'yuv420p',
-      segmentPath,
-    ]);
+    ];
+
+    if (audioPath) {
+      args.push(
+        '-i',
+        audioPath,
+        '-map',
+        '0:v:0',
+        '-map',
+        '1:a:0',
+        '-c:v',
+        'libx264',
+        '-c:a',
+        'aac',
+        '-pix_fmt',
+        'yuv420p',
+        '-shortest',
+        segmentPath,
+      );
+    } else {
+      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', segmentPath);
+    }
+
+    await this.runFFmpeg(args);
     this.videoSegments.push(segmentPath);
   }
 
   private async ensureTempDir(): Promise<void> {
-    if (!this.tempDir) {
-      if (this.config.tempDir) {
-        this.tempDir = this.config.tempDir;
-      } else {
-        this.tempDir = await mkdtemp(join(tmpdir(), 'tutolang-'));
-      }
+    if (this.tempDir) return;
+    if (this.config.tempDir) {
+      await mkdir(this.config.tempDir, { recursive: true });
+      this.tempDir = this.config.tempDir;
+      return;
     }
+    this.tempDir = await mkdtemp(join(tmpdir(), 'tutolang-'));
+  }
+
+  private async getMediaDuration(mediaPath: string): Promise<number | undefined> {
+    try {
+      const output = await this.runFFprobe([
+        '-v',
+        'error',
+        '-show_entries',
+        'format=duration',
+        '-of',
+        'default=noprint_wrappers=1:nokey=1',
+        mediaPath,
+      ]);
+      const duration = parseFloat(output.trim());
+      return Number.isFinite(duration) ? duration : undefined;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`[ffprobe] 无法获取时长：${reason}`);
+      return undefined;
+    }
+  }
+
+  private estimateDuration(text: string): number {
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    const base = words ? words / 2.6 : 1.8;
+    const rate = this.config.tts?.speakingRate ?? 1;
+    const estimate = base / rate;
+    return Math.min(Math.max(estimate, 1.8), 15);
+  }
+
+  private runFFprobe(args: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const proc = spawn(this.getFFprobePath(), args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (chunk) => {
+        stdout += chunk.toString();
+      });
+      proc.stderr.on('data', (chunk) => {
+        stderr += chunk.toString();
+      });
+      proc.on('close', (code) => {
+        if (code === 0) {
+          resolve(stdout);
+        } else {
+          reject(new Error(`ffprobe exited with code ${code}: ${stderr.trim()}`));
+        }
+      });
+    });
+  }
+
+  private getFFmpegPath(): string {
+    return this.config.ffmpeg?.path ?? 'ffmpeg';
+  }
+
+  private getFFprobePath(): string {
+    return this.config.ffmpeg?.ffprobePath ?? 'ffprobe';
   }
 
   private runFFmpeg(args: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
-      const proc = spawn('ffmpeg', ['-loglevel', 'error', ...args], { stdio: 'inherit' });
+      const proc = spawn(this.getFFmpegPath(), ['-loglevel', 'error', ...args], { stdio: 'inherit' });
       proc.on('close', (code) => {
         if (code === 0) resolve();
         else reject(new Error(`ffmpeg exited with code ${code}`));
       });
     });
   }
-}
-
-export class TTS {
-  async generate(text: string, options?: any): Promise<string> {
-    return `tts://${text.slice(0, 20)}${options ? JSON.stringify(options) : ''}`;
-  }
-}
-
-export class VideoMerger {
   async merge(segments: string[], output: string): Promise<void> {
     console.log(`[merge] ${segments.length} -> ${output}`);
   }

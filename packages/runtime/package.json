@@ -9,6 +9,7 @@
   },
   "scripts": {},
   "dependencies": {
+    "@google/genai": "^1.34.0",
     "@tutolang/types": "workspace:*"
   }
 }
