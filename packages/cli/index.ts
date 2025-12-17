@@ -49,6 +49,11 @@ const argv = yargs(hideBin(process.argv))
       type: 'boolean',
       default: false,
     },
+    mockFormat: {
+      describe: 'Mock output format: text | json | both',
+      type: 'string',
+      default: 'text',
+    },
   })
   .help()
   .version()
@@ -63,6 +68,7 @@ async function main() {
     verbose,
     language,
     mock,
+    mockFormat,
   } = argv;
 
   // TODO: Load config file if provided
@@ -81,8 +87,16 @@ async function main() {
 
   try {
     if (mock) {
-      const mockOutput = await runMockFromFile(input);
-      console.log(mockOutput);
+      const mockResult = await runMockFromFile(input);
+      if (mockFormat === 'json') {
+        console.log(JSON.stringify(mockResult.actions, null, 2));
+      } else if (mockFormat === 'both') {
+        console.log(mockResult.text);
+        console.log('\n----- JSON -----');
+        console.log(JSON.stringify(mockResult.actions, null, 2));
+      } else {
+        console.log(mockResult.text);
+      }
       return;
     }
     if (compile) {

@@ -1,9 +1,10 @@
+import { describe, expect, test } from '@jest/globals';
 import { runMockFromFile } from '@tutolang/core/mock';
 
 describe('CLI mock output (hello-world)', () => {
   test('should produce human-readable action list', async () => {
-    const output = await runMockFromFile('sample/hello-world.tutolang');
-    expect(output).toMatchInlineSnapshot(`
+    const result = await runMockFromFile('sample/hello-world.tutolang');
+    expect(result.text).toMatchInlineSnapshot(`
 "1. 语音播报：Hello, everyone! Welcome to this tutorial. In this video, I'll show you how to create a simple web page.
 2. 打开文件：index.html（模式：输入 i）
 3. 语音播报：Let's create our HTML file.

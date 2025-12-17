@@ -33,6 +33,7 @@ const COMMENT_RE = /^\s*#/;
 export class Parser {
   private lines: string[];
   private index = 0;
+  private blockCommentDepth = 0;
 
   constructor(code: string) {
     this.lines = code.replace(/\r\n/g, '\n').split('\n');
@@ -43,6 +44,10 @@ export class Parser {
     while (this.index < this.lines.length) {
       const raw = this.lines[this.index];
       const trimmed = raw.trim();
+      if (this.handleBlockComment(trimmed)) {
+        this.index++;
+        continue;
+      }
       if (!trimmed || COMMENT_RE.test(trimmed)) {
         this.index++;
         continue;
@@ -79,6 +84,18 @@ export class Parser {
       this.index++;
     }
     return ast;
+  }
+
+  private handleBlockComment(trimmed: string): boolean {
+    const opens = (trimmed.match(/#\{+/g) || []).length;
+    const closes = (trimmed.match(/}\s*$/g) || []).length;
+    this.blockCommentDepth += opens;
+    if (this.blockCommentDepth > 0) {
+      this.blockCommentDepth -= closes;
+      if (this.blockCommentDepth < 0) this.blockCommentDepth = 0;
+      return true;
+    }
+    return false;
   }
 
   private parseSay(ctx: ParseContext): SayNode {
@@ -210,7 +227,7 @@ export class Parser {
     const [, markerBody, content] = markerMatch;
     const parts = markerBody.trim().split(/\s+/);
     const head = parts.shift()?.toLowerCase() ?? '';
-    const tail = [parts.join(' '), content].filter(Boolean).join(' ').trim();
+    const tail = content.trim();
 
     if (head === 'start') {
       return this.marker(ctx, 'start', undefined, undefined, tail);
@@ -230,11 +247,11 @@ export class Parser {
       return this.marker(ctx, 'edit', lineNumber, undefined, tail);
     }
     if (head === 'hl' || head === 'highlight') {
-      const selector = [parts.join(' '), content].filter(Boolean).join(' ').trim();
+      const selector = parts.join(' ').trim();
       return this.marker(ctx, 'highlight', undefined, { selector }, tail);
     }
     if (head === 'click') {
-      const selector = [parts.join(' '), content].filter(Boolean).join(' ').trim();
+      const selector = parts.join(' ').trim();
       return this.marker(ctx, 'click', undefined, { selector }, tail);
     }
     // 默认作为解说行

@@ -14,6 +14,12 @@
 - **已完成**：架构与目录文档；类型定义较完整（AST/Executor/Plugin/RuntimeConfig）；各包与 CLI/Runtime/Executor/Plugin 管理器均有骨架；VSCode 执行器、CLI 参数解析、示例脚本。
 - **未实现/空白**：Lexer/Parser/CodeGenerator/Compiler 主流程；Runtime 各功能（TTS、录屏、合成、Git）；PluginManager 钩子调用细节；CLI 的 compile/execute 具体逻辑；config/utils 内容；执行器的真实交互与录屏。
 
+## 进展速记（2025-12-17 夜间）
+- mock 模式：`pnpm mock-sample`/`--mock` 可输出语义化动作列表；支持 `--mockFormat json|text|both`。
+- Parser MVP：行级解析支持 say/file/browser/commit/video，marker 支持 start/end/lN/edit/hl/click；忽略行注释与块注释。
+- 测试：添加 parser 单测 + mock e2e 快照；jest 关闭 watchman；测试脚本改为全局 `jest`。
+- 路径别名：tsconfig/jest 支持 `@tutolang/*`。
+
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
 2. **AST 与生成**：根据 `@tutolang/types` 扩充必要字段（如 marker 参数/类型），实现 CodeGenerator 输出调用 Runtime 的 TS 代码。

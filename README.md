@@ -61,6 +61,19 @@ How to use
 9. Generate video via `tutolang -i ./repo -o ./dist`
 10. Then you can find the video under `./dist`
 
+Mock mode
+---------
+
+快速验证脚本、不触发 TTS/录屏：
+
+```bash
+pnpm mock-sample
+# or
+pnpm ts-node packages/cli/index.ts -i sample/hello-world.tutolang --mock --mockFormat both
+```
+
+控制台会输出按脚本顺序的语义化动作列表，可选同时输出 JSON。
+
 
 Reference# tutolang
 

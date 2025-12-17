@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   AST,
+  ASTNode,
   BrowserNode,
   FileNode,
   MarkerNode,
@@ -20,28 +21,45 @@ export type Action =
   | { type: 'highlight'; selector: string }
   | { type: 'browserEnd'; path: string };
 
-export async function runMockFromFile(inputPath: string): Promise<string> {
+export type MockResult = {
+  actions: Action[];
+  text: string;
+};
+
+export async function runMockFromFile(inputPath: string): Promise<MockResult> {
   const abs = resolve(process.cwd(), inputPath);
   const code = await readFile(abs, 'utf-8');
   const parser = new Parser(code);
   const ast = parser.parse();
   const actions = buildActions(ast);
-  return formatActions(actions);
+  return { actions, text: formatActions(actions) };
 }
 
 export function buildActions(ast: AST): Action[] {
   const actions: Action[] = [];
   for (const node of ast) {
-    if (node.type === NodeType.Say) {
+    if (isSay(node)) {
       actions.push(buildSay(node));
-    } else if (node.type === NodeType.File) {
+    } else if (isFile(node)) {
       actions.push(...buildFile(node));
-    } else if (node.type === NodeType.Browser) {
+    } else if (isBrowser(node)) {
       actions.push(...buildBrowser(node));
     }
     // Commit/Video 等先不 mock，后续可扩展
   }
   return actions;
+}
+
+function isSay(node: ASTNode): node is SayNode {
+  return node.type === NodeType.Say;
+}
+
+function isFile(node: ASTNode): node is FileNode {
+  return node.type === NodeType.File;
+}
+
+function isBrowser(node: ASTNode): node is BrowserNode {
+  return node.type === NodeType.Browser;
 }
 
 function buildSay(node: SayNode): Action {
@@ -52,9 +70,7 @@ function buildFile(node: FileNode): Action[] {
   const actions: Action[] = [{ type: 'openFile', path: node.path, mode: node.mode }];
   for (const marker of node.markers) {
     const handled = mapMarkerToAction(marker, node.path);
-    if (handled) {
-      actions.push(handled);
-    }
+    actions.push(...handled);
   }
   actions.push({ type: 'fileEnd', path: node.path });
   return actions;
@@ -64,33 +80,41 @@ function buildBrowser(node: BrowserNode): Action[] {
   const actions: Action[] = [{ type: 'openBrowser', path: node.path }];
   for (const marker of node.markers) {
     const handled = mapMarkerToAction(marker, node.path);
-    if (handled) {
-      actions.push(handled);
-    }
+    actions.push(...handled);
   }
   actions.push({ type: 'browserEnd', path: node.path });
   return actions;
 }
 
-function mapMarkerToAction(marker: MarkerNode, path: string): Action | null {
+function mapMarkerToAction(marker: MarkerNode, path: string): Action[] {
   const text = marker.content?.trim() ?? '';
+  const actions: Action[] = [];
   switch (marker.markerType) {
     case 'start':
     case 'end':
-      return { type: 'say', text };
+      if (text) actions.push({ type: 'say', text });
+      return actions;
     case 'line':
       if (marker.lineNumber !== undefined) {
-        return { type: 'inputLine', path, lineNumber: marker.lineNumber, text };
+        actions.push({ type: 'inputLine', path, lineNumber: marker.lineNumber, text });
+        return actions;
       }
-      return { type: 'say', text };
+      if (text) actions.push({ type: 'say', text });
+      return actions;
     case 'edit':
-      return { type: 'editLine', path, lineNumber: marker.lineNumber ?? 0, text };
+      actions.push({ type: 'editLine', path, lineNumber: marker.lineNumber ?? 0, text });
+      return actions;
     case 'highlight':
-      return { type: 'highlight', selector: marker.params?.selector ?? '' };
+      actions.push({ type: 'highlight', selector: marker.params?.selector ?? '' });
+      if (text) actions.push({ type: 'say', text });
+      return actions;
     case 'click':
-      return { type: 'highlight', selector: marker.params?.selector ?? '' }; // click 暂时映射为高亮
+      actions.push({ type: 'highlight', selector: marker.params?.selector ?? '' });
+      if (text) actions.push({ type: 'say', text });
+      return actions;
     default:
-      return null;
+      if (text) actions.push({ type: 'say', text });
+      return actions;
   }
 }
 
