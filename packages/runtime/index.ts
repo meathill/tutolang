@@ -4,9 +4,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { TTS } from './tts.ts';
+import { resolveScriptPath, renderFilePreview, tryReadFileLines, type FileContext } from './file-preview.ts';
 
 export { TTS } from './tts.ts';
 export { DiskCache, resolveCacheRootDir } from './ai-cache.ts';
+export { GitHelper } from './git-helper.ts';
+
+type SlideLayout = 'center' | 'code';
+
+type SlideOptions = {
+  layout?: SlideLayout;
+};
 
 /**
  * Runtime MVP：以日志形式记录动作，方便验证编译输出。
@@ -19,6 +27,7 @@ export class Runtime {
   private tts: TTS;
   private actions: string[] = [];
   private tempDir?: string;
+  private fileContexts = new Map<string, FileContext>();
 
   constructor(config: RuntimeConfig = {}) {
     this.config = {
@@ -48,33 +57,94 @@ export class Runtime {
   }
 
   async file(path: string, options?: { mode?: 'i' | 'e' }): Promise<void> {
-    this.log('file', `${path} mode=${options?.mode ?? '-'}`);
+    const mode = options?.mode;
+    this.log('file', `${path} mode=${mode ?? '-'}`);
     if (this.codeExecutor) {
       await this.codeExecutor.openFile(path);
     }
-    await this.createSlide(`文件：${path} 模式：${options?.mode ?? '-'}`);
+
+    let context: FileContext | undefined;
+    if (this.config.renderVideo) {
+      const resolvedPath = resolveScriptPath(this.config.projectDir, path);
+      const lines = await tryReadFileLines(resolvedPath);
+      context = {
+        displayPath: path,
+        resolvedPath,
+        mode,
+        lines,
+        revealedLineCount: mode === 'i' ? 0 : (lines?.length ?? 0),
+      };
+      this.fileContexts.set(path, context);
+    }
+
+    const slideText =
+      context?.lines && context.lines.length > 0
+        ? renderFilePreview(context, { screenHeight: this.config.screen?.height })
+        : `文件：${path} 模式：${mode ?? '-'}`;
+    await this.createSlide(slideText, undefined, undefined, { layout: context?.lines?.length ? 'code' : 'center' });
   }
 
   async fileEnd(path: string): Promise<void> {
     this.log('fileEnd', path);
-    await this.createSlide(`文件结束：${path}`, 1.2);
+    const context = this.fileContexts.get(path);
+    if (context?.lines && context.lines.length > 0) {
+      context.revealedLineCount = context.lines.length;
+      await this.createSlide(renderFilePreview(context, { screenHeight: this.config.screen?.height }), 1.2, undefined, { layout: 'code' });
+    } else {
+      await this.createSlide(`文件结束：${path}`, 1.2);
+    }
+    this.fileContexts.delete(path);
   }
 
   async inputLine(path: string, lineNumber?: number, text?: string): Promise<void> {
     this.log('inputLine', `${path}:${lineNumber ?? '?'} ${text ?? ''}`.trim());
+    const context = this.fileContexts.get(path);
+    const codeLine =
+      context?.lines && context.lines.length > 0 && lineNumber !== undefined ? context.lines[lineNumber - 1] : undefined;
     if (this.codeExecutor) {
-      await this.codeExecutor.writeLine(text ?? '', lineNumber);
+      await this.codeExecutor.writeLine(codeLine ?? (text ?? ''), lineNumber);
     }
     const audioPath = await this.generateSpeechAudio(text);
+
+    if (context?.lines && context.lines.length > 0 && lineNumber !== undefined) {
+      if (context.mode === 'i') {
+        const nextCount = Math.max(context.revealedLineCount, lineNumber);
+        context.revealedLineCount = Math.min(nextCount, context.lines.length);
+      } else {
+        context.revealedLineCount = context.lines.length;
+      }
+      await this.createSlide(
+        renderFilePreview(context, { highlightLine: lineNumber, narration: text, includeNarration: true, screenHeight: this.config.screen?.height }),
+        1.4,
+        audioPath,
+        { layout: 'code' },
+      );
+      return;
+    }
+
     await this.createSlide(`输入 ${path}:${lineNumber ?? '?'}\n${text ?? ''}`, 1.4, audioPath);
   }
 
   async editLine(path: string, lineNumber: number, text?: string): Promise<void> {
     this.log('editLine', `${path}:${lineNumber} ${text ?? ''}`.trim());
+    const context = this.fileContexts.get(path);
+    const codeLine = context?.lines && context.lines.length > 0 ? context.lines[lineNumber - 1] : undefined;
     if (this.codeExecutor) {
-      await this.codeExecutor.writeLine(text ?? '', lineNumber);
+      await this.codeExecutor.writeLine(codeLine ?? (text ?? ''), lineNumber);
     }
     const audioPath = await this.generateSpeechAudio(text);
+
+    if (context?.lines && context.lines.length > 0) {
+      context.revealedLineCount = context.lines.length;
+      await this.createSlide(
+        renderFilePreview(context, { highlightLine: lineNumber, narration: text, includeNarration: true, screenHeight: this.config.screen?.height }),
+        1.4,
+        audioPath,
+        { layout: 'code' },
+      );
+      return;
+    }
+
     await this.createSlide(`编辑 ${path}:${lineNumber}\n${text ?? ''}`, 1.4, audioPath);
   }
 
@@ -151,7 +221,7 @@ export class Runtime {
     }
   }
 
-  private async createSlide(text: string, duration?: number, audioPath?: string): Promise<void> {
+  private async createSlide(text: string, duration?: number, audioPath?: string, options: SlideOptions = {}): Promise<void> {
     if (!this.config.renderVideo) return;
     await this.ensureTempDir();
     const segmentPath = join(this.tempDir!, `${this.videoSegments.length.toString().padStart(4, '0')}.mp4`);
@@ -159,7 +229,12 @@ export class Runtime {
     const textFile = `${segmentPath}.txt`;
     await writeFile(textFile, normalized, 'utf-8');
     const font = '/System/Library/Fonts/Supplemental/Arial.ttf';
-    const draw = `drawtext=fontfile=${font}:textfile=${textFile.replace(/:/g, '\\:')}:fontcolor=white:fontsize=32:box=1:boxcolor=0x00000099:boxborderw=20:x=(w-text_w)/2:y=(h-text_h)/2:line_spacing=6`;
+    const layout = options.layout ?? 'center';
+    const escapedTextFile = textFile.replace(/:/g, '\\:');
+    const draw =
+      layout === 'code'
+        ? `drawtext=fontfile=${font}:textfile=${escapedTextFile}:fontcolor=white:fontsize=26:box=1:boxcolor=0x000000cc:boxborderw=18:x=60:y=60:line_spacing=6`
+        : `drawtext=fontfile=${font}:textfile=${escapedTextFile}:fontcolor=white:fontsize=32:box=1:boxcolor=0x00000099:boxborderw=20:x=(w-text_w)/2:y=(h-text_h)/2:line_spacing=6`;
     let targetDuration = duration ?? 2;
     if (audioPath) {
       const audioDuration = await this.getMediaDuration(audioPath);
@@ -317,21 +392,5 @@ export class Runtime {
   async addSubtitle(videoPath: string, subtitlePath: string): Promise<string> {
     console.log(`[subtitle] ${subtitlePath} -> ${videoPath}`);
     return `${videoPath}.with-subtitle`;
-  }
-}
-
-export class GitHelper {
-  async checkout(commitHash: string): Promise<void> {
-    console.log(`[git] checkout ${commitHash}`);
-  }
-
-  async getDiff(from: string, to: string): Promise<string> {
-    console.log(`[git] diff ${from}..${to}`);
-    return '';
-  }
-
-  async getCurrentCommit(): Promise<string> {
-    console.log('[git] current');
-    return '';
   }
 }

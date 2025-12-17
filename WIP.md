@@ -52,6 +52,16 @@
   - [x] `Runtime.inputLine`/`Runtime.editLine` 在 `renderVideo=true` 时生成对应语音片段。
   - [x] 补充单测：逐行解说应将音频路径传入 `createSlide`。
 
+## 下一步（2025-12-17 文件代码预览）
+- 目标：在 `file/inputLine/editLine/fileEnd` 的视频片段里展示真实文件内容（若可读取），并高亮当前行，提升「像在写代码」的观感。
+- TODO：
+  - [x] `RuntimeConfig` 增加 `projectDir`（脚本所在目录），用于解析脚本内相对路径（如 `index.html`）。
+  - [x] `Runtime.file` 读取文件内容并输出代码预览 slide（含行号）。
+  - [x] `Runtime.inputLine/editLine` 若已打开文件则渲染代码预览：`mode=i` 按 marker 行号渐进展示、并高亮目标行。
+  - [x] `Core.executeFile` 自动注入 `projectDir=dirname(inputPath)`。
+  - [x] 单测：`file + inputLine` 应输出包含源码行的 slide 文本，并携带 `layout=code`。
+  - [x] 补齐 `sample/index.html`，让 `sample/hello-world.tutolang` 可直接展示代码。
+
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
 2. **AST 与生成**：根据 `@tutolang/types` 扩充必要字段（如 marker 参数/类型），实现 CodeGenerator 输出调用 Runtime 的 TS 代码。

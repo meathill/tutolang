@@ -115,6 +115,8 @@ export interface TerminalExecutor extends Executor {
 export interface RuntimeConfig {
   renderVideo?: boolean;
   tempDir?: string;
+  // 用于解析脚本中引用的相对路径（如 `file 'index.html'`），一般由 CLI/Core 注入为脚本所在目录。
+  projectDir?: string;
   cacheDir?: string;
   tts?: {
     engine?: 'gemini';

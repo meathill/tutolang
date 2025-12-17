@@ -50,7 +50,7 @@ export default class TutolangCore {
     const url = pathToFileURL(target).href;
     const mod = await import(url);
     const runner = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
-    const runtime = new Runtime({ renderVideo: true });
+    const runtime = new Runtime({ renderVideo: true, projectDir: dirname(inputPath) });
     if (typeof runner === 'function') {
       await runner(runtime, { output: outputVideo });
     }
