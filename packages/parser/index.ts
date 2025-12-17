@@ -8,6 +8,7 @@ type ParseContext = {
 
 const INDENT_RE = /^([ \t]*)/;
 const COMMENT_RE = /^\s*#/;
+const PATH_RE = /['"]([^'"]+)['"]/;
 
 /**
  * 轻量级行解析器：为了 MVP mock，直接按行处理，不做完整词法分析。
@@ -92,19 +93,8 @@ export class Parser {
   private parseSay(ctx: ParseContext): SayNode {
     const header = this.lines[this.index].trim();
     this.index++;
-    const params: SayNode['params'] = {};
-    if (/say\s*\(\s*browser\s*\)/.test(header) || /say\s*\(\s*browser\s*=\s*.*\)/.test(header)) {
-      params.browser = 'true';
-    }
-    // 读取缩进行
-    const contentLines: string[] = [];
-    while (this.index < this.lines.length) {
-      const line = this.lines[this.index];
-      const [indent] = line.match(INDENT_RE) || [''];
-      if (!indent.length || COMMENT_RE.test(line.trim())) break;
-      contentLines.push(line.trim());
-      this.index++;
-    }
+    const params = this.extractParams(header);
+    const { lines: contentLines } = this.collectIndentedBlock();
     return {
       type: NodeType.Say,
       line: ctx.line,
@@ -117,31 +107,14 @@ export class Parser {
   private parseFile(ctx: ParseContext): FileNode {
     const header = this.lines[this.index].trim();
     this.index++;
-    const modeMatch = header.match(/^file\((?<mode>[ie])\)/);
-    const pathMatch = header.match(/'([^']+)'/);
+    const modeMatch = header.match(/^file\((?<mode>[ie])[^)]*\)/);
     const mode = (modeMatch?.groups?.mode as 'i' | 'e' | undefined) ?? undefined;
-    const path = pathMatch ? pathMatch[1] : '';
+    const path = this.extractPath(header, 'file', ctx);
 
-    const markers: MarkerNode[] = [];
-    while (this.index < this.lines.length) {
-      const raw = this.lines[this.index];
-      const trimmed = raw.trim();
-      const [indent] = raw.match(INDENT_RE) || [''];
-      if (!indent.length || (!trimmed && !indent.length)) break;
-      if (!trimmed) {
-        this.index++;
-        continue;
-      }
-      if (COMMENT_RE.test(trimmed)) {
-        this.index++;
-        continue;
-      }
-      const marker = this.parseMarker(trimmed, ctx);
-      if (marker) {
-        markers.push(marker);
-      }
-      this.index++;
-    }
+    const { lines: markerLines, contexts } = this.collectIndentedBlock();
+    const markers: MarkerNode[] = markerLines
+      .map((line, idx) => this.parseMarker(line, contexts[idx]))
+      .filter((m): m is MarkerNode => !!m);
 
     return {
       type: NodeType.File,
@@ -156,28 +129,11 @@ export class Parser {
   private parseBrowser(ctx: ParseContext): BrowserNode {
     const header = this.lines[this.index].trim();
     this.index++;
-    const pathMatch = header.match(/'([^']+)'/);
-    const path = pathMatch ? pathMatch[1] : '';
-    const markers: MarkerNode[] = [];
-    while (this.index < this.lines.length) {
-      const raw = this.lines[this.index];
-      const trimmed = raw.trim();
-      const [indent] = raw.match(INDENT_RE) || [''];
-      if (!indent.length || (!trimmed && !indent.length)) break;
-      if (!trimmed) {
-        this.index++;
-        continue;
-      }
-      if (COMMENT_RE.test(trimmed)) {
-        this.index++;
-        continue;
-      }
-      const marker = this.parseMarker(trimmed, ctx);
-      if (marker) {
-        markers.push(marker);
-      }
-      this.index++;
-    }
+    const path = this.extractPath(header, 'browser', ctx);
+    const { lines: markerLines, contexts } = this.collectIndentedBlock();
+    const markers: MarkerNode[] = markerLines
+      .map((line, idx) => this.parseMarker(line, contexts[idx]))
+      .filter((m): m is MarkerNode => !!m);
     return {
       type: NodeType.Browser,
       line: ctx.line,
@@ -191,6 +147,9 @@ export class Parser {
     const header = this.lines[this.index].trim();
     this.index++;
     const [, hash] = header.split(/\s+/, 2);
+    if (!hash) {
+      throw this.error('commit 语句缺少 commit hash', ctx);
+    }
     return {
       type: NodeType.Commit,
       line: ctx.line,
@@ -202,8 +161,7 @@ export class Parser {
   private parseVideo(ctx: ParseContext): VideoNode {
     const header = this.lines[this.index].trim();
     this.index++;
-    const pathMatch = header.match(/'([^']+)'/);
-    const path = pathMatch ? pathMatch[1] : '';
+    const path = this.extractPath(header, 'video', ctx);
     return {
       type: NodeType.Video,
       line: ctx.line,
@@ -234,7 +192,10 @@ export class Parser {
       return this.marker(ctx, 'line', lineNumber, undefined, tail);
     }
     if (head === 'edit') {
-      const lineNumber = parseInt(parts[0] ?? '0', 10);
+      const lineNumber = parseInt(parts[0] ?? '', 10);
+      if (Number.isNaN(lineNumber)) {
+        throw this.error('edit 标记缺少行号', ctx);
+      }
       return this.marker(ctx, 'edit', lineNumber, undefined, tail);
     }
     if (head === 'hl' || head === 'highlight') {
@@ -267,10 +228,121 @@ export class Parser {
     };
   }
 
-  private context(): ParseContext {
+  private extractParams(header: string): Record<string, string> {
+    const match = header.match(/^[a-z]+\s*\((.*?)\)/i);
+    if (!match) return {};
+    const raw = match[1]?.trim() ?? '';
+    if (!raw) return {};
+    const params: Record<string, string> = {};
+    for (const token of this.splitParams(raw)) {
+      if (!token) continue;
+      const eqIndex = token.indexOf('=');
+      if (eqIndex >= 0) {
+        const key = token.slice(0, eqIndex).trim();
+        const value = this.stripQuotes(token.slice(eqIndex + 1).trim());
+        if (key) params[key] = value;
+        continue;
+      }
+      params[token] = 'true';
+    }
+    return params;
+  }
+
+  private splitParams(raw: string): string[] {
+    const tokens: string[] = [];
+    let buffer = '';
+    let inQuote = false;
+    let quoteChar = '';
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i];
+      if (inQuote) {
+        if (ch === quoteChar && raw[i - 1] !== '\\') {
+          inQuote = false;
+        }
+        buffer += ch;
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        inQuote = true;
+        quoteChar = ch;
+        buffer += ch;
+        continue;
+      }
+      if (ch === ',') {
+        tokens.push(buffer.trim());
+        buffer = '';
+        continue;
+      }
+      buffer += ch;
+    }
+    if (buffer.trim()) {
+      tokens.push(buffer.trim());
+    }
+    return tokens;
+  }
+
+  private extractPath(header: string, keyword: string, ctx: ParseContext): string {
+    const pathMatch = header.match(PATH_RE);
+    if (!pathMatch) {
+      throw this.error(`${keyword} 语句缺少路径`, ctx);
+    }
+    return pathMatch[1];
+  }
+
+  private stripQuotes(text: string): string {
+    if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+      return text.slice(1, -1);
+    }
+    return text;
+  }
+
+  private error(message: string, ctx: ParseContext): Error {
+    return new Error(`[ParseError] ${message} (line ${ctx.line})`);
+  }
+
+  private context(index: number = this.index): ParseContext {
     return {
-      line: this.index + 1,
+      line: index + 1,
       column: 1,
     };
+  }
+
+  private collectIndentedBlock(): { lines: string[]; contexts: ParseContext[] } {
+    const lines: string[] = [];
+    const contexts: ParseContext[] = [];
+    let blockIndent: number | null = null;
+
+    while (this.index < this.lines.length) {
+      const raw = this.lines[this.index];
+      const trimmed = raw.trim();
+
+      if (this.handleBlockComment(trimmed)) {
+        this.index++;
+        continue;
+      }
+
+      const indentLength = this.getIndentLength(raw);
+
+      if (!trimmed && indentLength === 0) break;
+      if (indentLength === 0) break;
+      if (blockIndent === null) blockIndent = indentLength;
+      if (indentLength < blockIndent) break;
+
+      if (!trimmed || COMMENT_RE.test(trimmed)) {
+        this.index++;
+        continue;
+      }
+
+      lines.push(trimmed);
+      contexts.push(this.context(this.index));
+      this.index++;
+    }
+
+    return { lines, contexts };
+  }
+
+  private getIndentLength(line: string): number {
+    const match = line.match(INDENT_RE);
+    return match ? match[1].length : 0;
   }
 }

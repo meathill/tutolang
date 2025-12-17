@@ -1,10 +1,14 @@
 import type { RuntimeConfig, CodeExecutor, BrowserExecutor } from '@tutolang/types';
 
+/**
+ * Runtime MVP：以日志形式记录动作，方便验证编译输出。
+ */
 export class Runtime {
   private config: RuntimeConfig;
   private codeExecutor?: CodeExecutor;
   private browserExecutor?: BrowserExecutor;
   private videoSegments: string[] = [];
+  private actions: string[] = [];
 
   constructor(config: RuntimeConfig = {}) {
     this.config = config;
@@ -18,80 +22,115 @@ export class Runtime {
     this.browserExecutor = executor;
   }
 
+  getActions(): string[] {
+    return [...this.actions];
+  }
+
   async say(content: string, options?: { image?: string; video?: string; browser?: string }): Promise<void> {
-    // TODO: Text-to-speech + static/video background
-    // 1. Generate audio from text
-    // 2. Load background image/video
-    // 3. Combine them
-    // 4. Save video segment
+    const extra = options ? ` ${JSON.stringify(options)}` : '';
+    this.log('say', `${content}${extra}`);
   }
 
   async file(path: string, options?: { mode?: 'i' | 'e' }): Promise<void> {
-    // TODO: Show and input/edit file
-    // 1. Open file in executor
-    // 2. Start recording
-    // 3. Simulate typing
-    // 4. Stop recording
+    this.log('file', `${path} mode=${options?.mode ?? '-'}`);
+    if (this.codeExecutor) {
+      await this.codeExecutor.openFile(path);
+    }
+  }
+
+  async fileEnd(path: string): Promise<void> {
+    this.log('fileEnd', path);
+  }
+
+  async inputLine(path: string, lineNumber?: number, text?: string): Promise<void> {
+    this.log('inputLine', `${path}:${lineNumber ?? '?'} ${text ?? ''}`.trim());
+    if (this.codeExecutor) {
+      await this.codeExecutor.writeLine(text ?? '', lineNumber);
+    }
+  }
+
+  async editLine(path: string, lineNumber: number, text?: string): Promise<void> {
+    this.log('editLine', `${path}:${lineNumber} ${text ?? ''}`.trim());
+    if (this.codeExecutor) {
+      await this.codeExecutor.writeLine(text ?? '', lineNumber);
+    }
+  }
+
+  async highlight(selector: string): Promise<void> {
+    this.log('highlight', selector);
+    if (this.browserExecutor) {
+      await this.browserExecutor.highlight(selector);
+    }
+  }
+
+  async click(selector: string): Promise<void> {
+    this.log('click', selector);
+    if (this.browserExecutor) {
+      await this.browserExecutor.click(selector);
+    }
   }
 
   async browser(path: string): Promise<void> {
-    // TODO: Browser operations
-    // 1. Launch browser
-    // 2. Navigate to URL
-    // 3. Record interactions
+    this.log('browser', path);
+    if (this.browserExecutor) {
+      await this.browserExecutor.navigate(path);
+    }
+  }
+
+  async browserEnd(path: string): Promise<void> {
+    this.log('browserEnd', path);
   }
 
   async commit(commitHash: string): Promise<void> {
-    // TODO: Git commit operations
-    // 1. Checkout to commit
-    // 2. Get diff from previous
+    this.log('commit', commitHash);
   }
 
   async video(path: string): Promise<void> {
-    // TODO: Insert video clip
     this.videoSegments.push(path);
+    this.log('video', path);
   }
 
   async merge(outputPath: string): Promise<void> {
-    // TODO: Merge all video segments
-    // 1. Collect all segments
-    // 2. Use ffmpeg to merge
-    // 3. Add subtitles
-    // 4. Export final video
+    this.log('merge', `${outputPath} (${this.videoSegments.length} segments)`);
+  }
+
+  private log(action: string, message: string): void {
+    const line = `[${action}] ${message}`;
+    this.actions.push(line);
+    // MVP：直接输出，便于人工观察
+    console.log(line);
   }
 }
 
 export class TTS {
   async generate(text: string, options?: any): Promise<string> {
-    // TODO: Text to speech
-    // Return audio file path
-    return '';
+    return `tts://${text.slice(0, 20)}${options ? JSON.stringify(options) : ''}`;
   }
 }
 
 export class VideoMerger {
   async merge(segments: string[], output: string): Promise<void> {
-    // TODO: Merge video segments using ffmpeg
+    console.log(`[merge] ${segments.length} -> ${output}`);
   }
 
   async addSubtitle(videoPath: string, subtitlePath: string): Promise<string> {
-    // TODO: Add subtitle to video
-    return '';
+    console.log(`[subtitle] ${subtitlePath} -> ${videoPath}`);
+    return `${videoPath}.with-subtitle`;
   }
 }
 
 export class GitHelper {
   async checkout(commitHash: string): Promise<void> {
-    // TODO: Git checkout
+    console.log(`[git] checkout ${commitHash}`);
   }
 
   async getDiff(from: string, to: string): Promise<string> {
-    // TODO: Get git diff
+    console.log(`[git] diff ${from}..${to}`);
     return '';
   }
 
   async getCurrentCommit(): Promise<string> {
-    // TODO: Get current commit hash
+    console.log('[git] current');
     return '';
   }
 }

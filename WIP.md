@@ -22,7 +22,7 @@
 ## 当前任务（2025-12-18）
 - 目标：推动 Parser → Compiler → Runtime 的 MVP 闭环。
 - TODO：
-  - [ ] 完整化 Parser（字符串/缩进/错误提示/参数解析）。
+  - [ ] 完整化 Parser（基础增强已完成：字符串字面量、严格缩进块、错误定位提示、参数解析健壮性；后续补充 Lexer 级细化）。
   - [ ] 设计并实现 CodeGenerator 的输出结构（调用 Runtime 的 TS 代码骨架）。
   - [ ] 串联 Compiler pipeline（调用插件钩子 + Parser + CodeGenerator，提供 compile-only 输出）。
   - [ ] Runtime MVP：提供 say/file/browser/video/merge 的 stub，实现日志化输出，便于 e2e。

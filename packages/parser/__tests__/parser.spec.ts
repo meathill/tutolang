@@ -52,11 +52,49 @@ describe('Parser (MVP subset)', () => {
     assert.strictEqual(hl.params?.selector, 'h1');
   });
 
+  it('should parse say params', () => {
+    const p = new Parser("say(image='cover.png',browser=/url):\n  hello");
+    const res = p.parse();
+    const say = res[0] as any;
+    assert.strictEqual(say.params.image, 'cover.png');
+    assert.strictEqual(say.params.browser, '/url');
+  });
+
+  it('should throw when file path missing', () => {
+    const p = new Parser("file(i):\n  [start] hi");
+    assert.throws(() => p.parse(), /\[ParseError\] file 语句缺少路径/);
+  });
+
   it('should ignore comments and block comments', () => {
     const p = new Parser(WITH_COMMENTS);
     const res = p.parse();
     assert.strictEqual(res.length, 2);
     assert.strictEqual(res[0].type, NodeType.Say);
     assert.strictEqual((res[1] as any).markers[0].lineNumber, 1);
+  });
+
+  it('应当保留标记的实际行号', () => {
+    const file = ast.find((n) => n.type === NodeType.File) as any;
+    assert.ok(file);
+    assert.strictEqual(file.markers[0].line, 10);
+    assert.strictEqual(file.markers[1].line, 11);
+  });
+
+  it('参数解析应处理带逗号的字符串', () => {
+    const p = new Parser(`say(title='Hello, world', note="a,b"):\n  hi`);
+    const res = p.parse();
+    const say = res[0] as any;
+    assert.strictEqual(say.params.title, 'Hello, world');
+    assert.strictEqual(say.params.note, 'a,b');
+  });
+
+  it('编辑标记缺少行号时抛错', () => {
+    const p = new Parser(`file(i) 'a':\n  [edit] hi`);
+    assert.throws(() => p.parse(), /edit 标记缺少行号/);
+  });
+
+  it('commit 缺少 hash 时抛错', () => {
+    const p = new Parser('commit:');
+    assert.throws(() => p.parse(), /commit 语句缺少 commit hash/);
   });
 });

@@ -1,6 +1,9 @@
 import type { TutolangOptions } from '@tutolang/types';
 import { Compiler } from '@tutolang/compiler';
 import { Runtime } from '@tutolang/runtime';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { basename, extname, join, dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 /**
  * Tutolang Core
@@ -18,25 +21,50 @@ export default class TutolangCore {
   }
 
   async compile(code: string): Promise<string> {
-    // TODO: Compile .tutolang to executable TypeScript
-    const tsCode = await this.compiler.compile(code);
-    return tsCode;
+    return this.compiler.compile(code);
   }
 
   async execute(code: string): Promise<void> {
-    // TODO: Compile and execute
-    // 1. Compile to TS
-    // 2. Run the generated code
-    // 3. Generate video
+    const compiled = await this.compiler.compile(code);
+    const url = this.bufferToModule(compiled);
+    const mod = await import(url);
+    const runner = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
+    if (typeof runner === 'function') {
+      await runner(this.runtime);
+    }
   }
 
   async compileFile(inputPath: string, outputPath: string): Promise<void> {
-    // TODO: Compile file
-    // Read .tutolang file, compile, write .ts file
+    const code = await readFile(inputPath, 'utf-8');
+    const compiled = await this.compiler.compile(code);
+    const target = this.resolveOutputPath(inputPath, outputPath);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, compiled, 'utf-8');
   }
 
   async executeFile(inputPath: string, outputPath: string): Promise<void> {
-    // TODO: Execute from file
-    // Compile and run, output video
+    const code = await readFile(inputPath, 'utf-8');
+    const compiled = await this.compiler.compile(code);
+    const target = this.resolveOutputPath(inputPath, outputPath);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, compiled, 'utf-8');
+    const url = pathToFileURL(target).href;
+    const mod = await import(url);
+    const runner = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
+    if (typeof runner === 'function') {
+      await runner(this.runtime);
+    }
+  }
+
+  private resolveOutputPath(inputPath: string, outputPath: string): string {
+    const isFile = extname(outputPath) !== '';
+    if (isFile) return outputPath;
+    const base = basename(inputPath, extname(inputPath));
+    return join(outputPath, `${base}.ts`);
+  }
+
+  private bufferToModule(code: string): string {
+    const encoded = Buffer.from(code, 'utf-8').toString('base64');
+    return `data:text/javascript;base64,${encoded}`;
   }
 }

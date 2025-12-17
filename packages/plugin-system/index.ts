@@ -8,46 +8,49 @@ export class PluginManager {
   }
 
   register(plugin: Plugin): void {
-    // TODO: Validate and register plugin
     this.plugins.push(plugin);
   }
 
   unregister(pluginName: string): void {
-    // TODO: Unregister plugin by name
+    this.plugins = this.plugins.filter((p) => p.name !== pluginName);
   }
 
   async callHook(hookName: keyof PluginHooks, ...args: any[]): Promise<any> {
-    // TODO: Call all plugins' hooks in sequence
-    // Support async hooks
-    return args[0];
+    let result = args[0];
+    for (const plugin of this.plugins) {
+      const hook = plugin.hooks[hookName];
+      if (!hook) continue;
+      // hooks 可以返回修改后的值，也可以返回 undefined
+      const maybe = await (hook as any)(result, ...args.slice(1));
+      if (maybe !== undefined) {
+        result = maybe;
+      }
+    }
+    return result;
   }
 
   async beforeParse(code: string): Promise<string> {
-    // TODO: Call all beforeParse hooks
-    return code;
+    return this.callHook('beforeParse', code);
   }
 
   async afterParse(ast: AST): Promise<AST> {
-    // TODO: Call all afterParse hooks
-    return ast;
+    return this.callHook('afterParse', ast);
   }
 
   async beforeCompile(ast: AST): Promise<AST> {
-    // TODO: Call all beforeCompile hooks
-    return ast;
+    return this.callHook('beforeCompile', ast);
   }
 
   async afterCompile(code: string): Promise<string> {
-    // TODO: Call all afterCompile hooks
-    return code;
+    return this.callHook('afterCompile', code);
   }
 
   async beforeExecute(): Promise<void> {
-    // TODO: Call all beforeExecute hooks
+    await this.callHook('beforeExecute');
   }
 
   async afterExecute(): Promise<void> {
-    // TODO: Call all afterExecute hooks
+    await this.callHook('afterExecute');
   }
 }
 
