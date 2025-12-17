@@ -115,6 +115,7 @@ export interface TerminalExecutor extends Executor {
 export interface RuntimeConfig {
   renderVideo?: boolean;
   tempDir?: string;
+  cacheDir?: string;
   tts?: {
     engine?: 'gemini';
     model?: string;
@@ -128,6 +129,7 @@ export interface RuntimeConfig {
     projectId?: string;
     region?: string;
     endpoint?: string;
+    cacheDir?: string;
   };
   ffmpeg?: {
     path?: string;

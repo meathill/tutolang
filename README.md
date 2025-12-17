@@ -166,6 +166,7 @@ module.exports = {
 > TTS 配置说明（Gemini-2.5-flash-preview-tts + `@google/genai`）：
 > - 提供 `GOOGLE_API_KEY`（官方 Gemini API Key），否则会跳过语音生成仅输出文字画面。
 > - 可覆盖字段：`tts.model`（默认 `gemini-2.5-flash-preview-tts`）、`tts.voiceName`（默认 `Puck`）、`tts.sampleRateHertz`（默认 24000）。  
+> - AI 调用（如 TTS）默认会做磁盘缓存，目录为 `{CWD}/.tutolang-cache/`；可通过 `TUTOLANG_CACHE_DIR` 或配置项 `cacheDir` / `tts.cacheDir` 覆盖。
 > - 需要本地安装 `ffmpeg`/`ffprobe`；如路径不同，可通过 `ffmpeg.path` 与 `ffmpeg.ffprobePath` 覆盖。
 
 Prerequisites

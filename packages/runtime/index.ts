@@ -7,6 +7,7 @@ import { writeFile } from 'node:fs/promises';
 import { TTS } from './tts.ts';
 
 export { TTS } from './tts.ts';
+export { DiskCache, resolveCacheRootDir } from './ai-cache.ts';
 
 /**
  * Runtime MVP：以日志形式记录动作，方便验证编译输出。
@@ -25,7 +26,7 @@ export class Runtime {
       renderVideo: false,
       ...config,
     };
-    this.tts = new TTS({ ...config.tts, tempDir: config.tempDir });
+    this.tts = new TTS({ cacheDir: config.cacheDir, ...config.tts, tempDir: config.tempDir });
   }
 
   setCodeExecutor(executor: CodeExecutor): void {
@@ -123,7 +124,8 @@ export class Runtime {
   }
 
   async merge(outputPath: string): Promise<void> {
-    this.log('merge', `${outputPath} (${this.videoSegments.length} segments)`);
+    const target = outputPath || join(this.tempDir ?? process.cwd(), 'tutolang-output.mp4');
+    this.log('merge', `${target} (${this.videoSegments.length} segments)`);
     if (!this.config.renderVideo) return;
     if (!this.videoSegments.length) {
       await this.createSlide('暂无内容', 1);
@@ -132,7 +134,7 @@ export class Runtime {
     const listPath = join(this.tempDir!, 'concat.txt');
     const listContent = this.videoSegments.map((p) => `file ${p}`).join('\n');
     await writeFile(listPath, listContent, 'utf-8');
-    await this.runFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', outputPath]);
+    await this.runFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', target]);
   }
 
   private log(action: string, message: string): void {
@@ -169,14 +171,16 @@ export class Runtime {
       'lavfi',
       '-i',
       `color=size=${this.config.screen?.width ?? 1280}x${this.config.screen?.height ?? 720}:duration=${targetDuration}:rate=30:color=black`,
-      '-vf',
-      draw,
     ];
 
     if (audioPath) {
+      args.push('-i', audioPath);
+    }
+
+    args.push('-vf', draw);
+
+    if (audioPath) {
       args.push(
-        '-i',
-        audioPath,
         '-map',
         '0:v:0',
         '-map',
@@ -273,9 +277,6 @@ export class Runtime {
         else reject(new Error(`ffmpeg exited with code ${code}`));
       });
     });
-  }
-  async merge(segments: string[], output: string): Promise<void> {
-    console.log(`[merge] ${segments.length} -> ${output}`);
   }
 
   async addSubtitle(videoPath: string, subtitlePath: string): Promise<string> {

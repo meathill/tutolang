@@ -37,6 +37,14 @@
   - [x] 将 `runtime.say` 接入 TTS，生成包含语音的片段并参与 `merge`。
   - [x] 补充单测（TTS 请求构造/落盘）与使用提示。
 
+## 本次修复（2025-12-17）
+- 目标：修复示例视频生成失败，并将所有 AI 调用结果做磁盘缓存以节省成本。
+- TODO：
+  - [x] 修复 `Runtime.createSlide` 的 ffmpeg 参数顺序（`-vf` 误绑定到音频输入导致报错）。
+  - [x] 为 TTS 增加磁盘缓存（默认 `.tutolang-cache/tts/`，可配置覆盖）。
+  - [x] 预留通用 AI 请求缓存工具（后续文本/图像等调用复用）。
+  - [x] 补充单测：TTS 缓存命中不再发起请求；视频生成参数顺序回归（尽量不依赖本机 ffmpeg）。
+
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
 2. **AST 与生成**：根据 `@tutolang/types` 扩充必要字段（如 marker 参数/类型），实现 CodeGenerator 输出调用 Runtime 的 TS 代码。

@@ -1,6 +1,7 @@
 .idea
 .env*
 .DS_Store
+.tutolang-cache
 out
 dist
 node_modules
