@@ -19,6 +19,7 @@
 - Parser MVP：行级解析支持 say/file/browser/commit/video，marker 支持 start/end/lN/edit/hl/click；忽略行注释与块注释。
 - 测试：添加 parser 单测 + mock e2e 快照；jest 关闭 watchman；测试脚本改为全局 `jest`。
 - 路径别名：tsconfig/jest 支持 `@tutolang/*`。
+- 本地运行：新增包声明与 symlink，提供 `pnpm mock-sample`（若 Node 25 + ts-node 组合有加载限制，可用 `pnpm test -- tests/mock-e2e.spec.ts` 查看同样输出）。
 
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
