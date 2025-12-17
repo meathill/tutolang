@@ -11,7 +11,7 @@
     "test": "jest",
     "eslint": "eslint . --fix --ext=.ts",
     "publish": "",
-    "mock-sample": "node --loader ts-node/esm packages/cli/index.ts -i sample/hello-world.tutolang --mock"
+    "mock-sample": "node scripts/mock-runner.cjs"
   },
   "repository": {
     "type": "git",
