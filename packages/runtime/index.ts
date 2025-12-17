@@ -1,9 +1,8 @@
 import type { RuntimeConfig, CodeExecutor, BrowserExecutor } from '@tutolang/types';
-import { mkdtemp, mkdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, open, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { writeFile } from 'node:fs/promises';
 import { TTS } from './tts.ts';
 
 export { TTS } from './tts.ts';
@@ -165,6 +164,8 @@ export class Runtime {
       targetDuration = this.estimateDuration(text);
     }
 
+    const sampleRate = this.config.tts?.sampleRateHertz ?? 24000;
+
     const args: string[] = [
       '-y',
       '-f',
@@ -173,30 +174,31 @@ export class Runtime {
       `color=size=${this.config.screen?.width ?? 1280}x${this.config.screen?.height ?? 720}:duration=${targetDuration}:rate=30:color=black`,
     ];
 
-    if (audioPath) {
-      args.push('-i', audioPath);
-    }
+    if (audioPath) args.push('-i', audioPath);
+    else args.push('-f', 'lavfi', '-i', `anullsrc=channel_layout=mono:sample_rate=${sampleRate}`);
 
     args.push('-vf', draw);
 
-    if (audioPath) {
-      args.push(
-        '-map',
-        '0:v:0',
-        '-map',
-        '1:a:0',
-        '-c:v',
-        'libx264',
-        '-c:a',
-        'aac',
-        '-pix_fmt',
-        'yuv420p',
-        '-shortest',
-        segmentPath,
-      );
-    } else {
-      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', segmentPath);
-    }
+    args.push(
+      '-af',
+      `apad=whole_dur=${targetDuration}`,
+      '-map',
+      '0:v:0',
+      '-map',
+      '1:a:0',
+      '-c:v',
+      'libx264',
+      '-c:a',
+      'aac',
+      '-ac',
+      '1',
+      '-ar',
+      `${sampleRate}`,
+      '-pix_fmt',
+      'yuv420p',
+      '-shortest',
+      segmentPath,
+    );
 
     await this.runFFmpeg(args);
     this.videoSegments.push(segmentPath);
@@ -213,6 +215,8 @@ export class Runtime {
   }
 
   private async getMediaDuration(mediaPath: string): Promise<number | undefined> {
+    const wavDuration = await this.getWavDuration(mediaPath);
+    if (wavDuration) return wavDuration;
     try {
       const output = await this.runFFprobe([
         '-v',
@@ -228,6 +232,29 @@ export class Runtime {
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       console.warn(`[ffprobe] 无法获取时长：${reason}`);
+      return undefined;
+    }
+  }
+
+  private async getWavDuration(wavPath: string): Promise<number | undefined> {
+    if (!wavPath.toLowerCase().endsWith('.wav')) return undefined;
+    try {
+      const handle = await open(wavPath, 'r');
+      try {
+        const header = Buffer.alloc(44);
+        const result = await handle.read(header, 0, header.length, 0);
+        if (result.bytesRead < header.length) return undefined;
+        if (header.toString('ascii', 0, 4) !== 'RIFF') return undefined;
+        if (header.toString('ascii', 8, 12) !== 'WAVE') return undefined;
+        const byteRate = header.readUInt32LE(28);
+        const dataSize = header.readUInt32LE(40);
+        if (!byteRate || !dataSize) return undefined;
+        const duration = dataSize / byteRate;
+        return Number.isFinite(duration) ? duration : undefined;
+      } finally {
+        await handle.close();
+      }
+    } catch {
       return undefined;
     }
   }
