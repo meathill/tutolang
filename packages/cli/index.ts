@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+import { basename } from 'node:path';
 type TutolangCoreType = typeof import('../core/index');
 type RunMock = typeof import('../core/mock').runMockFromFile;
 
@@ -121,11 +122,11 @@ async function main() {
       console.log('Compilation complete!');
     } else {
       // Compile and execute
-      // TODO: Implement full execution mode
       const inputPath = resolve(process.cwd(), input);
       const outputPath = resolve(process.cwd(), output);
-      await tutolang.executeFile(inputPath, outputPath);
-      console.log('Video generation complete!');
+      const outputVideo = resolve(outputPath, `${basename(input, '.tutolang')}.mp4`);
+      await tutolang.executeFile(inputPath, outputPath, outputVideo);
+      console.log('Video generation complete! 输出文件：', outputVideo);
     }
   } catch (error) {
     console.error('Error:', error);

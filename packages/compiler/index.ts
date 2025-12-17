@@ -28,8 +28,9 @@ export class CodeGenerator {
     const body = ast.map((node) => this.generateNode(node)).filter(Boolean).join('\n');
     return `${this.generateImports()}
 
-export async function run(runtime = new Runtime()) {
+export async function run(runtime = new Runtime(), options: { output?: string } = {}) {
 ${body}
+  await runtime.merge(options.output ?? 'tutolang-output.mp4');
 }
 
 if (import.meta.main) {

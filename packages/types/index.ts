@@ -113,6 +113,8 @@ export interface TerminalExecutor extends Executor {
 
 // Runtime Config
 export interface RuntimeConfig {
+  renderVideo?: boolean;
+  tempDir?: string;
   tts?: {
     engine?: string;
     voice?: string;

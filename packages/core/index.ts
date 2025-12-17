@@ -1,4 +1,4 @@
-import type { TutolangOptions } from '@tutolang/types';
+import type { TutolangOptions, RuntimeConfig } from '@tutolang/types';
 import { Compiler } from '@tutolang/compiler';
 import { Runtime } from '@tutolang/runtime';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -11,26 +11,25 @@ import { pathToFileURL } from 'node:url';
  */
 export default class TutolangCore {
   private compiler: Compiler;
-  private runtime: Runtime;
   private options: TutolangOptions;
 
   constructor(options: TutolangOptions) {
     this.options = options;
     this.compiler = new Compiler();
-    this.runtime = new Runtime();
   }
 
   async compile(code: string): Promise<string> {
     return this.compiler.compile(code);
   }
 
-  async execute(code: string): Promise<void> {
+  async execute(code: string, options?: { runtimeConfig?: RuntimeConfig; output?: string }): Promise<void> {
     const compiled = await this.compiler.compile(code);
     const url = this.bufferToModule(compiled);
     const mod = await import(url);
     const runner = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
+    const runtime = new Runtime({ renderVideo: true, ...options?.runtimeConfig });
     if (typeof runner === 'function') {
-      await runner(this.runtime);
+      await runner(runtime, { output: options?.output });
     }
   }
 
@@ -42,7 +41,7 @@ export default class TutolangCore {
     await writeFile(target, compiled, 'utf-8');
   }
 
-  async executeFile(inputPath: string, outputPath: string): Promise<void> {
+  async executeFile(inputPath: string, outputPath: string, outputVideo?: string): Promise<void> {
     const code = await readFile(inputPath, 'utf-8');
     const compiled = await this.compiler.compile(code);
     const target = this.resolveOutputPath(inputPath, outputPath);
@@ -51,8 +50,9 @@ export default class TutolangCore {
     const url = pathToFileURL(target).href;
     const mod = await import(url);
     const runner = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
+    const runtime = new Runtime({ renderVideo: true });
     if (typeof runner === 'function') {
-      await runner(this.runtime);
+      await runner(runtime, { output: outputVideo });
     }
   }
 

@@ -18,15 +18,16 @@
 - mock 模式：`pnpm mock-sample`/`--mock` 输出语义化动作列表，支持 `--mockFormat json|text|both`。
 - Parser MVP：行级解析支持 say/file/browser/commit/video，marker 支持 start/end/lN/edit/hl/click；忽略行注释与块注释。
 - 测试：Node 原生测试覆盖 parser 与 mock e2e；路径别名 `@tutolang/*` 在 tsconfig 生效。
+- 编译闭环：CodeGenerator+Runtime+CLI execute 已可输出首个占位视频 `dist/hello-world.mp4`（ffmpeg 文字叠加）。
 
 ## 当前任务（2025-12-18）
 - 目标：推动 Parser → Compiler → Runtime 的 MVP 闭环。
 - TODO：
-  - [ ] 完整化 Parser（基础增强已完成：字符串字面量、严格缩进块、错误定位提示、参数解析健壮性；后续补充 Lexer 级细化）。
-  - [ ] 设计并实现 CodeGenerator 的输出结构（调用 Runtime 的 TS 代码骨架）。
-  - [ ] 串联 Compiler pipeline（调用插件钩子 + Parser + CodeGenerator，提供 compile-only 输出）。
-  - [ ] Runtime MVP：提供 say/file/browser/video/merge 的 stub，实现日志化输出，便于 e2e。
-  - [ ] CLI：打通 `compileFile/executeFile` 的输入/输出路径（先写入生成的 TS）。
+  - [x] 完整化 Parser（基础增强：字符串字面量、严格缩进块、错误定位提示、参数解析健壮性；后续补充 Lexer 级细化）。
+  - [x] 设计并实现 CodeGenerator 的输出结构（调用 Runtime 的 TS 代码骨架）。
+  - [x] 串联 Compiler pipeline（调用插件钩子 + Parser + CodeGenerator，提供 compile-only 输出）。
+  - [x] Runtime MVP：提供 say/file/browser/video/merge 的 stub，实现日志化输出，便于 e2e。
+  - [x] CLI：打通 `compileFile/executeFile` 的输入/输出路径（写入生成的 TS 并可直接执行）。
 
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
