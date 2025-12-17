@@ -2,8 +2,28 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import TutolangCore from '@tutolang/core';
-import { runMockFromFile } from '@tutolang/core/mock';
+type TutolangCoreType = typeof import('../core/index');
+type RunMock = typeof import('../core/mock').runMockFromFile;
+
+async function loadCore(): Promise<TutolangCoreType['default']> {
+  try {
+    const mod = await import('@tutolang/core');
+    return (mod as any).default ?? (mod as any);
+  } catch {
+    const mod = await import('../core/index.ts');
+    return (mod as any).default ?? (mod as any);
+  }
+}
+
+async function loadMock(): Promise<RunMock> {
+  try {
+    const mod = await import('@tutolang/core/mock');
+    return (mod as any).runMockFromFile;
+  } catch {
+    const mod = await import('../core/mock.ts');
+    return (mod as any).runMockFromFile;
+  }
+}
 
 const argv = yargs(hideBin(process.argv))
   .scriptName('tutolang')
@@ -71,13 +91,14 @@ async function main() {
     mockFormat,
   } = argv;
 
+  const Core = await loadCore();
   // TODO: Load config file if provided
   const options = {
     language,
     // ...load from config file
   };
 
-  const tutolang = new TutolangCore(options);
+  const tutolang = new Core(options);
 
   if (verbose) {
     console.log('Starting Tutolang...');
@@ -87,7 +108,8 @@ async function main() {
 
   try {
     if (mock) {
-      const mockResult = await runMockFromFile(input);
+      const runMock = await loadMock();
+      const mockResult = await runMock(input);
       if (mockFormat === 'json') {
         console.log(JSON.stringify(mockResult.actions, null, 2));
       } else if (mockFormat === 'both') {

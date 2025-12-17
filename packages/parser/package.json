@@ -1,10 +1,6 @@
 {
   "name": "@tutolang/parser",
   "version": "0.1.0",
-  "description": "Tutolang parser",
-  "main": "index.ts",
-  "scripts": {},
-  "dependencies": {
-    "@tutolang/types": "workspace:*"
-  }
+  "type": "module",
+  "main": "./index.ts"
 }
