@@ -5,6 +5,7 @@
       "ESNext"
     ],
     "target": "ESNext",
+    "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "experimentalDecorators": true,
     "noUnusedLocals": false,
@@ -16,7 +17,10 @@
       "@tutolang/*": [
         "packages/*"
       ]
-    }
+    },
+    "types": [
+      "node"
+    ]
   },
   "exclude": [
     "node_modules",

@@ -174,8 +174,10 @@ export default {
 
   // A map from regular expressions to paths to transformers
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
   },
+
+  extensionsToTreatAsEsm: ['.ts'],
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
   // transformIgnorePatterns: [
@@ -193,9 +195,11 @@ export default {
   // watchPathIgnorePatterns: [],
 
   // Whether to use watchman for file crawling
-  // watchman: true,
+  watchman: false,
 
   moduleNameMapper: {
     '^@tutolang/(.*)$': '<rootDir>/packages/$1',
   },
+
+  testPathIgnorePatterns: ['<rootDir>/executor/vscode/'],
 };

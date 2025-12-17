@@ -1,13 +1,14 @@
 {
-  "name": "@tutolang/types",
+  "name": "tutolang",
   "version": "0.1.0",
   "description": "A script for making Programing Tutorial videos.",
   "main": "index.js",
+  "type": "module",
   "engines": {
     "node": ">=18.13.0"
   },
   "scripts": {
-    "test": "jest tests/",
+    "test": "jest",
     "eslint": "eslint . --fix --ext=.ts",
     "publish": "",
     "mock-sample": "pnpm ts-node packages/cli/index.ts -i sample/hello-world.tutolang --mock"
