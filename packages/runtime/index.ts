@@ -43,16 +43,8 @@ export class Runtime {
   async say(content: string, options?: { image?: string; video?: string; browser?: string }): Promise<void> {
     const extra = options ? ` ${JSON.stringify(options)}` : '';
     this.log('say', `${content}${extra}`);
-    let audioPath: string | null = null;
-    if (this.config.renderVideo) {
-      try {
-        audioPath = await this.tts.generate(content);
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        console.warn(`[tts] 生成失败：${reason}`);
-      }
-    }
-    await this.createSlide(content, undefined, audioPath ?? undefined);
+    const audioPath = await this.generateSpeechAudio(content);
+    await this.createSlide(content, undefined, audioPath);
   }
 
   async file(path: string, options?: { mode?: 'i' | 'e' }): Promise<void> {
@@ -73,7 +65,8 @@ export class Runtime {
     if (this.codeExecutor) {
       await this.codeExecutor.writeLine(text ?? '', lineNumber);
     }
-    await this.createSlide(`输入 ${path}:${lineNumber ?? '?'}\n${text ?? ''}`, 1.4);
+    const audioPath = await this.generateSpeechAudio(text);
+    await this.createSlide(`输入 ${path}:${lineNumber ?? '?'}\n${text ?? ''}`, 1.4, audioPath);
   }
 
   async editLine(path: string, lineNumber: number, text?: string): Promise<void> {
@@ -81,7 +74,8 @@ export class Runtime {
     if (this.codeExecutor) {
       await this.codeExecutor.writeLine(text ?? '', lineNumber);
     }
-    await this.createSlide(`编辑 ${path}:${lineNumber}\n${text ?? ''}`, 1.4);
+    const audioPath = await this.generateSpeechAudio(text);
+    await this.createSlide(`编辑 ${path}:${lineNumber}\n${text ?? ''}`, 1.4, audioPath);
   }
 
   async highlight(selector: string): Promise<void> {
@@ -141,6 +135,20 @@ export class Runtime {
     this.actions.push(line);
     // MVP：直接输出，便于人工观察
     console.log(line);
+  }
+
+  private async generateSpeechAudio(text?: string): Promise<string | undefined> {
+    if (!this.config.renderVideo) return undefined;
+    const trimmed = text?.trim();
+    if (!trimmed) return undefined;
+    try {
+      const audioPath = await this.tts.generate(trimmed);
+      return audioPath ?? undefined;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`[tts] 生成失败：${reason}`);
+      return undefined;
+    }
   }
 
   private async createSlide(text: string, duration?: number, audioPath?: string): Promise<void> {

@@ -46,6 +46,12 @@
   - [x] 预留通用 AI 请求缓存工具（后续文本/图像等调用复用）。
   - [x] 补充单测：TTS 缓存命中不再发起请求；视频生成参数顺序回归（尽量不依赖本机 ffmpeg）。
 
+## 本次修复（2025-12-17 逐行解说语音）
+- 目标：文件区块逐行解说（`[lN]`/`[edit]`）也生成语音，并合成进最终视频。
+- TODO：
+  - [x] `Runtime.inputLine`/`Runtime.editLine` 在 `renderVideo=true` 时生成对应语音片段。
+  - [x] 补充单测：逐行解说应将音频路径传入 `createSlide`。
+
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
 2. **AST 与生成**：根据 `@tutolang/types` 扩充必要字段（如 marker 参数/类型），实现 CodeGenerator 输出调用 Runtime 的 TS 代码。

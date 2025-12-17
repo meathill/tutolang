@@ -122,3 +122,57 @@ process.exit(0);
   const audioMapIndex = (args as string[]).findIndex((value, index) => value === '-map' && (args as string[])[index + 1] === '1:a:0');
   assert.ok(audioMapIndex >= 0, '应显式映射静音音轨');
 });
+
+test('Runtime.inputLine 应为逐行解说生成语音并传入 createSlide', async () => {
+  const runtime = new Runtime({ renderVideo: true });
+
+  let generatedText: string | undefined;
+  const fakeAudioPath = '/tmp/tutolang-fake-line.wav';
+  (runtime as unknown as { tts: { generate: (text: string) => Promise<string> } }).tts.generate = async (text) => {
+    generatedText = text;
+    return fakeAudioPath;
+  };
+
+  let slideAudio: string | undefined;
+  (runtime as unknown as { createSlide: (text: string, duration?: number, audioPath?: string) => Promise<void> }).createSlide =
+    async (_text, _duration, audioPath) => {
+      slideAudio = audioPath;
+    };
+
+  const originalLog = console.log;
+  console.log = () => undefined;
+  try {
+    await runtime.inputLine('index.html', 1, 'First, we declare the doctype.');
+  } finally {
+    console.log = originalLog;
+  }
+  assert.equal(generatedText, 'First, we declare the doctype.');
+  assert.equal(slideAudio, fakeAudioPath);
+});
+
+test('Runtime.editLine 应为逐行解说生成语音并传入 createSlide', async () => {
+  const runtime = new Runtime({ renderVideo: true });
+
+  let generatedText: string | undefined;
+  const fakeAudioPath = '/tmp/tutolang-fake-edit.wav';
+  (runtime as unknown as { tts: { generate: (text: string) => Promise<string> } }).tts.generate = async (text) => {
+    generatedText = text;
+    return fakeAudioPath;
+  };
+
+  let slideAudio: string | undefined;
+  (runtime as unknown as { createSlide: (text: string, duration?: number, audioPath?: string) => Promise<void> }).createSlide =
+    async (_text, _duration, audioPath) => {
+      slideAudio = audioPath;
+    };
+
+  const originalLog = console.log;
+  console.log = () => undefined;
+  try {
+    await runtime.editLine('index.html', 6, 'We will change the heading text.');
+  } finally {
+    console.log = originalLog;
+  }
+  assert.equal(generatedText, 'We will change the heading text.');
+  assert.equal(slideAudio, fakeAudioPath);
+});
