@@ -12,7 +12,7 @@ tutolang/
 ├── Reference.md       # Language reference
 ├── Roadmap.md         # Development roadmap
 ├── TODO.md            # Todo list
-└── package.json       # Root package config
+└── package.json       # Root package config（Node 24，零转译）
 ```
 
 ## Packages
@@ -163,19 +163,17 @@ Terminal recording.
 3. Add package dependencies
 4. Update documentation
 
-### Testing
-Run tests from root:
+### 测试
+根目录直接使用 Node 原生测试：
 ```bash
 pnpm test
 ```
+(等价于 `node --experimental-strip-types --experimental-transform-types --test ...`)
 
-### Building
-Build all packages:
-```bash
-pnpm build
-```
+### 构建
+当前为零转译开发模式，无需构建步骤；后续若需产出 JS 包再补充构建脚本。
 
-### Linting
+### Lint
 ```bash
 pnpm eslint
 ```

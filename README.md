@@ -1,12 +1,12 @@
 # tutolang
 
-A script for making Programing Tutorial videos.
+一款将代码历史与解说脚本转成教学视频的工具（零转译、纯 ESM）。
 
 运行环境
 --------
 
-- Node.js 24 LTS（使用 `--experimental-strip-types --experimental-transform-types` 原生执行 TypeScript）。
-- 无需 Babel/ts-node/ts-jest，保持零转译、纯 ESM。
+- Node.js 24 LTS（使用 `--experimental-strip-types --experimental-transform-types` 原生执行 TypeScript）
+- 无需 Babel/ts-node/ts-jest，保持零转译
 
 
 Synopsis
@@ -24,48 +24,31 @@ tutolang -i ./repo -o ./dist
 
 
 How to use
---------
+----------
 
-1. Create a repo
-2. Write down application codes as usual
-3. Then we start to create tutorial
-   4Add `index.tutolang` to the root, like:
+1. 准备好代码仓库。
+2. 在仓库根目录创建 `index.tutolang`，示例：
+
     ```tutolang
-    # we could add
+    # 简单示例
     say(image=/path/to/cover):
-        hello, every one, I'm Meathill.
-        In this lesson, I will teach you how to write HTML, CSS, and JavaScript.
+        hello, everyone. In this lesson we will write HTML, CSS, and JavaScript.
 
-    file 'index.html':
+    file(i) 'index.html':
         [start] Let's make a simple html as example.
-        [l1] `doctype html` will tell browser this is page will follow HTML5 specification.
-        [l5] `div` is a container we will use it many times to create full page layout
+        [l1] `doctype html` tells browser we follow HTML5.
+        [l5] `div` is a container we will use for layout.
 
     say:
-        now you can see a very simple "hello world" in browser window
+        now you can see a simple "hello world" in browser window
 
-    file 'style.css':
-        [start] Then let's add some styles to this page.
-        [l5] `color red` will make the color of font to red.
-
-    say:
-        OK, you see,
+    file(e) 'style.css':
+        [start] Let's add some styles.
+        [l5] `color: red` will change font color.
     ```
-4. Commit all codes
-5. Write next scene
-6. Add video script to this scene, like:
-    ```tutolang
-    file 'style.css':
-        [start] the default red is a little ugly, let's make it better
-        [diff5] `#369` is a hex number
-
-    say:
-        better, yes?
-    ```
-7. Commit all changes
-8. Write next scene till all scenes are written.
-9. Generate video via `tutolang -i ./repo -o ./dist`
-10. Then you can find the video under `./dist`
+3. 持续补充后续场景，按需加入 `commit`、`browser`、`video` 等指令。
+4. 运行 `tutolang -i ./repo -o ./dist` 生成视频。
+5. 视频产物位于 `./dist`。
 
 Mock mode
 ---------
