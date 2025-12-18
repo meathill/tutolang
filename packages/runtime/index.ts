@@ -16,6 +16,10 @@ type SlideOptions = {
   layout?: SlideLayout;
 };
 
+type RuntimeFileContext = FileContext & {
+  typedLineCount: number;
+};
+
 /**
  * Runtime MVP：以日志形式记录动作，方便验证编译输出。
  */
@@ -27,7 +31,7 @@ export class Runtime {
   private tts: TTS;
   private actions: string[] = [];
   private tempDir?: string;
-  private fileContexts = new Map<string, FileContext>();
+  private fileContexts = new Map<string, RuntimeFileContext>();
 
   constructor(config: RuntimeConfig = {}) {
     this.config = {
@@ -59,13 +63,14 @@ export class Runtime {
   async file(path: string, options?: { mode?: 'i' | 'e' }): Promise<void> {
     const mode = options?.mode;
     this.log('file', `${path} mode=${mode ?? '-'}`);
+    const resolvedPath = resolveScriptPath(this.config.projectDir, path);
+    const shouldRecord = Boolean(this.config.renderVideo && this.codeExecutor && mode === 'i');
     if (this.codeExecutor) {
-      await this.codeExecutor.openFile(path);
+      await this.codeExecutor.openFile(resolvedPath, shouldRecord ? { createIfMissing: true, clear: true } : undefined);
     }
 
-    let context: FileContext | undefined;
+    let context: RuntimeFileContext | undefined;
     if (this.config.renderVideo) {
-      const resolvedPath = resolveScriptPath(this.config.projectDir, path);
       const lines = await tryReadFileLines(resolvedPath);
       context = {
         displayPath: path,
@@ -73,9 +78,12 @@ export class Runtime {
         mode,
         lines,
         revealedLineCount: mode === 'i' ? 0 : (lines?.length ?? 0),
+        typedLineCount: mode === 'i' ? 0 : (lines?.length ?? 0),
       };
       this.fileContexts.set(path, context);
     }
+
+    if (shouldRecord) return;
 
     const slideText =
       context?.lines && context.lines.length > 0
@@ -87,6 +95,11 @@ export class Runtime {
   async fileEnd(path: string): Promise<void> {
     this.log('fileEnd', path);
     const context = this.fileContexts.get(path);
+    if (this.config.renderVideo && this.codeExecutor && context?.mode === 'i') {
+      await this.flushRemainingFileLines(context);
+      this.fileContexts.delete(path);
+      return;
+    }
     if (context?.lines && context.lines.length > 0) {
       context.revealedLineCount = context.lines.length;
       await this.createSlide(renderFilePreview(context, { screenHeight: this.config.screen?.height }), 1.2, undefined, {
@@ -101,6 +114,10 @@ export class Runtime {
   async inputLine(path: string, lineNumber?: number, text?: string): Promise<void> {
     this.log('inputLine', `${path}:${lineNumber ?? '?'} ${text ?? ''}`.trim());
     const context = this.fileContexts.get(path);
+    if (this.config.renderVideo && this.codeExecutor && context?.mode === 'i' && lineNumber !== undefined) {
+      await this.recordCodeSegment(context, lineNumber, text);
+      return;
+    }
     const codeLine =
       context?.lines && context.lines.length > 0 && lineNumber !== undefined
         ? context.lines[lineNumber - 1]
@@ -208,8 +225,9 @@ export class Runtime {
       await this.createSlide('暂无内容', 1);
     }
     await this.ensureTempDir();
+    await this.assertSegmentsCompatible(this.videoSegments);
     const listPath = join(this.tempDir!, 'concat.txt');
-    const listContent = this.videoSegments.map((p) => `file ${p}`).join('\n');
+    const listContent = this.videoSegments.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n');
     await writeFile(listPath, listContent, 'utf-8');
     await this.runFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', target]);
   }
@@ -266,14 +284,17 @@ export class Runtime {
       targetDuration = this.estimateDuration(text);
     }
 
-    const sampleRate = this.config.tts?.sampleRateHertz ?? 24000;
+    const sampleRate = this.getStandardSampleRate();
+    const fps = this.getStandardFps();
+    const width = this.getStandardWidth();
+    const height = this.getStandardHeight();
 
     const args: string[] = [
       '-y',
       '-f',
       'lavfi',
       '-i',
-      `color=size=${this.config.screen?.width ?? 1280}x${this.config.screen?.height ?? 720}:duration=${targetDuration}:rate=30:color=black`,
+      `color=size=${width}x${height}:duration=${targetDuration}:rate=${fps}:color=black`,
     ];
 
     if (audioPath) args.push('-i', audioPath);
@@ -304,6 +325,125 @@ export class Runtime {
 
     await this.runFFmpeg(args);
     this.videoSegments.push(segmentPath);
+  }
+
+  private async recordCodeSegment(context: RuntimeFileContext, lineNumber: number, narration?: string): Promise<void> {
+    if (!this.codeExecutor) return;
+    if (!context.lines || context.lines.length === 0) {
+      throw new Error(`无法读取源码：${context.displayPath}（file(i) 录屏需要存在的源文件）`);
+    }
+    if (lineNumber < 1 || lineNumber > context.lines.length) {
+      throw new Error(`行号超出范围：${context.displayPath}:${lineNumber}（共 ${context.lines.length} 行）`);
+    }
+
+    const audioPath = await this.generateSpeechAudio(narration);
+    const minDuration = 1.2;
+    let desiredDuration = minDuration;
+    if (audioPath) {
+      const audioDuration = await this.getMediaDuration(audioPath);
+      if (audioDuration) {
+        desiredDuration = Math.max(desiredDuration, audioDuration + 0.2);
+      }
+    }
+
+    await this.ensureTempDir();
+
+    const captureStartedAt = Date.now();
+    await this.codeExecutor.startRecording();
+
+    const targetLine = lineNumber;
+    const startLine = context.typedLineCount + 1;
+    for (let i = startLine; i <= targetLine; i++) {
+      await this.codeExecutor.writeLine(context.lines[i - 1] ?? '', undefined, { appendNewLine: true });
+    }
+    context.typedLineCount = Math.max(context.typedLineCount, targetLine);
+
+    await this.codeExecutor.highlightLine(targetLine);
+
+    const elapsedMs = Date.now() - captureStartedAt;
+    const desiredMs = Math.ceil(desiredDuration * 1000);
+    const remainingMs = Math.max(0, desiredMs - elapsedMs);
+    if (remainingMs > 0) {
+      await this.delay(remainingMs);
+    }
+
+    const capturePath = await this.codeExecutor.stopRecording();
+    const segmentDuration = Math.max(desiredDuration, (Date.now() - captureStartedAt) / 1000);
+    await this.transcodeCaptureToSegment(capturePath, { audioPath, duration: segmentDuration });
+  }
+
+  private async flushRemainingFileLines(context: RuntimeFileContext): Promise<void> {
+    if (!this.codeExecutor) return;
+    if (!context.lines || context.lines.length === 0) return;
+    if (context.typedLineCount >= context.lines.length) return;
+
+    const captureStartedAt = Date.now();
+    await this.codeExecutor.startRecording();
+    const startLine = Math.max(1, context.typedLineCount + 1);
+    for (let i = startLine; i <= context.lines.length; i++) {
+      await this.codeExecutor.writeLine(context.lines[i - 1] ?? '', undefined, { appendNewLine: true });
+    }
+    context.typedLineCount = context.lines.length;
+
+    const minDuration = 0.8;
+    const elapsedMs = Date.now() - captureStartedAt;
+    const remainingMs = Math.max(0, Math.ceil(minDuration * 1000) - elapsedMs);
+    if (remainingMs > 0) {
+      await this.delay(remainingMs);
+    }
+
+    const capturePath = await this.codeExecutor.stopRecording();
+    const segmentDuration = Math.max(minDuration, (Date.now() - captureStartedAt) / 1000);
+    await this.transcodeCaptureToSegment(capturePath, { duration: segmentDuration });
+  }
+
+  private async transcodeCaptureToSegment(
+    capturePath: string,
+    options: { audioPath?: string; duration: number },
+  ): Promise<void> {
+    await this.ensureTempDir();
+    const segmentPath = join(this.tempDir!, `${this.videoSegments.length.toString().padStart(4, '0')}.mp4`);
+
+    const sampleRate = this.getStandardSampleRate();
+    const fps = this.getStandardFps();
+    const width = this.getStandardWidth();
+    const height = this.getStandardHeight();
+
+    const args: string[] = ['-y', '-i', capturePath];
+    if (options.audioPath) {
+      args.push('-i', options.audioPath);
+    } else {
+      args.push('-f', 'lavfi', '-i', `anullsrc=channel_layout=mono:sample_rate=${sampleRate}`);
+    }
+
+    const vf = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${fps},format=yuv420p`;
+    args.push('-vf', vf);
+
+    args.push('-af', `apad=whole_dur=${options.duration}`, '-map', '0:v:0', '-map', '1:a:0');
+
+    args.push(
+      '-t',
+      `${options.duration}`,
+      '-c:v',
+      'libx264',
+      '-c:a',
+      'aac',
+      '-ac',
+      '1',
+      '-ar',
+      `${sampleRate}`,
+      '-pix_fmt',
+      'yuv420p',
+      '-shortest',
+      segmentPath,
+    );
+
+    await this.runFFmpeg(args);
+    this.videoSegments.push(segmentPath);
+  }
+
+  private delay(durationMs: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, durationMs));
   }
 
   private async ensureTempDir(): Promise<void> {
@@ -390,12 +530,101 @@ export class Runtime {
     });
   }
 
+  private async assertSegmentsCompatible(paths: string[]): Promise<void> {
+    if (paths.length <= 1) return;
+    const [first, ...rest] = paths;
+    if (!first) return;
+
+    let expected: string;
+    try {
+      expected = await this.getSegmentSignature(first);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`无法检查片段编码参数（请确认已安装 ffprobe 或配置 ffmpeg.ffprobePath）：${reason}`);
+    }
+
+    for (const path of rest) {
+      let actual: string;
+      try {
+        actual = await this.getSegmentSignature(path);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(`无法检查片段编码参数：${path}（${reason}）`);
+      }
+      if (actual !== expected) {
+        throw new Error(
+          `片段编码参数不一致，无法使用 concat + -c copy 合并。\n` +
+            `- 期望：${expected}\n` +
+            `- 实际：${actual}\n` +
+            `- 文件：${path}\n` +
+            `提示：请统一录屏模板参数（分辨率/fps/编码），或先把片段转码为统一参数后再合并。`,
+        );
+      }
+    }
+  }
+
+  private async getSegmentSignature(path: string): Promise<string> {
+    const raw = await this.runFFprobe([
+      '-v',
+      'error',
+      '-show_entries',
+      'stream=codec_type,codec_name,width,height,pix_fmt,r_frame_rate,avg_frame_rate,channels,sample_rate',
+      '-of',
+      'json',
+      path,
+    ]);
+    const parsed = JSON.parse(raw) as { streams?: unknown[] };
+    if (!parsed.streams || !Array.isArray(parsed.streams)) {
+      throw new Error('ffprobe 输出缺少 streams');
+    }
+
+    const streams = parsed.streams as Array<Record<string, unknown>>;
+    const video = streams.find((s) => s.codec_type === 'video');
+    const audio = streams.find((s) => s.codec_type === 'audio');
+    if (!video) throw new Error('缺少视频轨');
+    if (!audio) throw new Error('缺少音轨');
+
+    const videoCodec = String(video.codec_name ?? '');
+    const width = Number(video.width ?? 0);
+    const height = Number(video.height ?? 0);
+    const pixFmt = String(video.pix_fmt ?? '');
+    const fps = String(video.r_frame_rate ?? video.avg_frame_rate ?? '');
+    if (!videoCodec || !width || !height) {
+      throw new Error('视频轨信息不完整');
+    }
+
+    const audioCodec = String(audio.codec_name ?? '');
+    const channels = Number(audio.channels ?? 0);
+    const sampleRate = String(audio.sample_rate ?? '');
+    if (!audioCodec || !channels || !sampleRate) {
+      throw new Error('音轨信息不完整');
+    }
+
+    return `v=${videoCodec} ${width}x${height} ${pixFmt} fps=${fps}; a=${audioCodec} ch=${channels} rate=${sampleRate}`;
+  }
+
   private getFFmpegPath(): string {
     return this.config.ffmpeg?.path ?? 'ffmpeg';
   }
 
   private getFFprobePath(): string {
     return this.config.ffmpeg?.ffprobePath ?? 'ffprobe';
+  }
+
+  private getStandardWidth(): number {
+    return this.config.screen?.width ?? 1280;
+  }
+
+  private getStandardHeight(): number {
+    return this.config.screen?.height ?? 720;
+  }
+
+  private getStandardFps(): number {
+    return this.config.output?.fps ?? 30;
+  }
+
+  private getStandardSampleRate(): number {
+    return this.config.tts?.sampleRateHertz ?? 24000;
   }
 
   private runFFmpeg(args: string[]): Promise<void> {

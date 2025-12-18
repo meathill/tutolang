@@ -74,6 +74,46 @@
   - [x] Demo：提供最小可运行脚本（打开 sample/index.html 并逐行输入），便于人工验收。
   - [x] 文档：补齐 `executor/vscode/README.md` 的配置与运行步骤（如何启动扩展、如何跑 demo、如何录屏）。
 
+## 下一步（2025-12-17 将 VSCode 录制接入 Runtime：实现 file(i) 真视频片段）
+> 你重启 session 后，从这里继续即可。
+
+### 目标
+- `file(i)` 不再用 `createSlide` 产出占位画面，而是：
+  - 驱动 VSCode 打开/清空目标文件；
+  - 按脚本推进逐行输入（包含补齐 marker 之间未标注的行）；
+  - 按每个 marker 生成一个「真实录屏片段」并嵌入对应 TTS 音轨；
+  - 最终由 `Runtime.merge` 合并为完整视频。
+
+### 设计约束（关键）
+- **统一编码参数**：为了让 `merge` 继续使用 concat + `-c copy`，所有片段必须统一：分辨率、fps、视频编码（H.264）、像素格式（yuv420p）、音频编码（AAC mono）、采样率（默认 24000）。
+- **录屏不依赖 VSCode API**：VSCode 扩展只管编辑器动作；录屏由 Node 侧 ffmpeg 控制（参数模板由用户配置）。
+- **片段级对齐**：每个 marker 生成一个 segment，并在生成时把 TTS 音频“烘焙”进 segment（避免后续复杂的音轨对齐/混音）。
+
+### TODO（按推荐顺序）
+- [x] `Runtime` 增加 “录屏片段” 产出路径：
+  - [x] 当 `renderVideo=true` 且设置了 `codeExecutor` 且 `file.mode === 'i'`：
+    - [x] `Runtime.file`：调用 `codeExecutor.openFile(path, { createIfMissing: true, clear: true })`；初始化 `typedLineCount=0`。
+    - [x] `Runtime.inputLine`：把本次 marker 当作一个 segment：
+      - [x] 预先生成本条解说的 TTS（命中缓存后很快），拿到 `audioDuration`，计算 `desiredDuration = max(minDuration, audioDuration + 0.2)`；
+      - [x] `codeExecutor.startRecording()`；
+      - [x] 从 `typedLineCount + 1` 逐行输入到 `lineNumber`（补齐中间未标注行），输入内容来自真实文件行（`Runtime.file` 已读取）；
+      - [x] `codeExecutor.highlightLine(lineNumber)`；
+      - [x] 为了保证视频长度覆盖解说：输入完后 `sleep(remainingMs)` 再 `stopRecording()`；
+      - [x] 使用 ffmpeg 将 raw 录屏转码为「标准 segment」并把音轨合成进去（或注入静音），然后 push 到 `videoSegments`。
+    - [x] `Runtime.fileEnd`：可选补齐剩余未输入行（无解说，静音短片段即可），保证最终文件完整。
+- [x] `Runtime.merge` 的健壮性检查：
+  - [x] 若发现 segment 编码参数不一致，明确报错并提示“录屏模板需统一参数/或启用转码合并”。
+- [ ] 配置与接线（MVP 先不做 CLI 参数也行）：
+  - [x] 新增脚本：编译并运行 `sample/hello-world.tutolang`，运行前注入 `runtime.setCodeExecutor(new VSCodeExecutor(...))`；
+  - [ ] 后续再把它升级为 CLI 配置项（`tutolang.config.js` / flags）。
+- [x] 测试（不依赖真实 VSCode/ffmpeg）：
+  - [x] fake `CodeExecutor`：断言 `openFile/typed lines/highlight/startRecording/stopRecording` 调用序列正确；
+  - [x] fake ffmpeg：捕获 “raw->segment 转码 + 音频注入” 的参数（类似 `packages/runtime/__tests__/runtime.spec.ts` 的做法）。
+- [x] 手工验收步骤（写到文档里）：
+  - [x] 启动 Extension Host；
+  - [x] 设置好 `TUTOLANG_RECORD_ARGS_JSON`（包含 `{output}`）；
+  - [x] 运行 demo / 运行 sample，确认生成 mp4 能播放、片段能合并、音画时长合理。
+
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
 2. **AST 与生成**：根据 `@tutolang/types` 扩充必要字段（如 marker 参数/类型），实现 CodeGenerator 输出调用 Runtime 的 TS 代码。

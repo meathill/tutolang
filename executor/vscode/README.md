@@ -25,6 +25,29 @@ node --experimental-strip-types --experimental-transform-types scripts/vscode-de
   --delayMs 12
 ```
 
+## 接入 Runtime（生成 file(i) 真录屏片段）
+
+该模式会把 `file(i)` 的每个 `[lN]` marker 变成一个「真实录屏片段」（VSCode 输入 + 高亮），并在片段内烘焙 TTS 音轨，最终由 `Runtime.merge` 合并输出 mp4。
+
+前置条件：
+- 已启动 Extension Host（确保 RPC 可访问）
+- 本机可执行 `ffmpeg`/`ffprobe`（或通过 `--ffmpegPath/--ffprobePath` 指定）
+- 已设置录屏模板 `TUTOLANG_RECORD_ARGS_JSON`（JSON 字符串数组，必须包含 `{output}` 占位符）
+
+运行示例：
+
+```bash
+export TUTOLANG_RECORD_ARGS_JSON='["-y", "...", "{output}"]'
+node --experimental-strip-types --experimental-transform-types scripts/generate-sample-video-vscode.ts \
+  --baseUrl http://127.0.0.1:4001 \
+  --output dist/hello-world-vscode.mp4 \
+  --delayMs 12
+```
+
+说明：
+- 若未设置 `GOOGLE_API_KEY`，仍可生成视频，但解说会静音（片段会注入静音音轨以保证可合并）。
+- 录屏模板可录全屏或指定窗口；Runtime 会在转码阶段统一分辨率/fps/编码参数，以便用 concat + `-c copy` 合并。
+
 ## 录屏（可选）
 
 录屏在 Node 侧由 `@tutolang/vscode-executor` 通过 ffmpeg 启动/停止，扩展本身不做屏幕录制。

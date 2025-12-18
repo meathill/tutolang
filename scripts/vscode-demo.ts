@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { VSCodeExecutor } from '@tutolang/vscode-executor';
+import { VSCodeExecutor } from '../packages/vscode-executor/index.ts';
 
 type DemoOptions = {
   baseUrl: string;
@@ -97,4 +97,3 @@ async function main() {
 }
 
 await main();
-
