@@ -2,10 +2,11 @@ import type { RuntimeConfig, CodeExecutor, BrowserExecutor } from '@tutolang/typ
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { TTS } from './tts.ts';
 import { resolveScriptPath, renderFilePreview, tryReadFileLines, type FileContext } from './file-preview.ts';
 import { MediaTools } from './media-tools.ts';
-import { createSlideSegment, transcodeCaptureToSegment, type SlideOptions } from './video-segments.ts';
+import { createImageSlideSegment, createSlideSegment, transcodeCaptureToSegment, type SlideOptions } from './video-segments.ts';
 
 type RuntimeFileContext = FileContext & {
   typedLineCount: number;
@@ -44,6 +45,20 @@ export class Runtime {
     const extra = options ? ` ${JSON.stringify(options)}` : '';
     this.log('say', `${content}${extra}`);
     const audioPath = await this.generateSpeechAudio(content);
+
+    if (this.config.renderVideo && this.browserExecutor && options?.browser) {
+      const shouldNavigate = options.browser.trim() !== '' && options.browser !== 'true';
+      if (shouldNavigate) {
+        const url = this.resolveBrowserTarget(options.browser);
+        await this.browserExecutor.navigate(url);
+      }
+      const screenshotPath = await this.browserExecutor.screenshot();
+      if (screenshotPath) {
+        await this.createImageSlide(screenshotPath, content, undefined, audioPath);
+        return;
+      }
+    }
+
     await this.createSlide(content, undefined, audioPath);
   }
 
@@ -171,6 +186,13 @@ export class Runtime {
     if (this.browserExecutor) {
       await this.browserExecutor.highlight(selector);
     }
+    if (this.config.renderVideo && this.browserExecutor) {
+      const screenshotPath = await this.browserExecutor.screenshot();
+      if (screenshotPath) {
+        await this.createImageSlide(screenshotPath, undefined, 1);
+        return;
+      }
+    }
     await this.createSlide(`高亮 ${selector}`, 1);
   }
 
@@ -179,19 +201,41 @@ export class Runtime {
     if (this.browserExecutor) {
       await this.browserExecutor.click(selector);
     }
+    if (this.config.renderVideo && this.browserExecutor) {
+      const screenshotPath = await this.browserExecutor.screenshot();
+      if (screenshotPath) {
+        await this.createImageSlide(screenshotPath, undefined, 1);
+        return;
+      }
+    }
     await this.createSlide(`点击 ${selector}`, 1);
   }
 
   async browser(path: string): Promise<void> {
     this.log('browser', path);
     if (this.browserExecutor) {
-      await this.browserExecutor.navigate(path);
+      const url = this.resolveBrowserTarget(path);
+      await this.browserExecutor.navigate(url);
+      if (this.config.renderVideo) {
+        const screenshotPath = await this.browserExecutor.screenshot();
+        if (screenshotPath) {
+          await this.createImageSlide(screenshotPath, `浏览：${path}`, 1.2);
+          return;
+        }
+      }
     }
     await this.createSlide(`浏览：${path}`, 1.2);
   }
 
   async browserEnd(path: string): Promise<void> {
     this.log('browserEnd', path);
+    if (this.config.renderVideo && this.browserExecutor) {
+      const screenshotPath = await this.browserExecutor.screenshot();
+      if (screenshotPath) {
+        await this.createImageSlide(screenshotPath, `浏览结束：${path}`, 1);
+        return;
+      }
+    }
     await this.createSlide(`浏览结束：${path}`, 1);
   }
 
@@ -248,6 +292,29 @@ export class Runtime {
       media: this.media,
       tempDir: this.tempDir!,
       segmentIndex: this.videoSegments.length,
+      text,
+      duration,
+      audioPath,
+      slideOptions: options,
+    });
+    this.videoSegments.push(segmentPath);
+  }
+
+  private async createImageSlide(
+    imagePath: string,
+    text?: string,
+    duration?: number,
+    audioPath?: string,
+    options: SlideOptions = {},
+  ): Promise<void> {
+    if (!this.config.renderVideo) return;
+    await this.ensureTempDir();
+    const segmentPath = await createImageSlideSegment({
+      config: this.config,
+      media: this.media,
+      tempDir: this.tempDir!,
+      segmentIndex: this.videoSegments.length,
+      imagePath,
       text,
       duration,
       audioPath,
@@ -356,6 +423,13 @@ export class Runtime {
       return;
     }
     this.tempDir = await mkdtemp(join(tmpdir(), 'tutolang-'));
+  }
+
+  private resolveBrowserTarget(target: string): string {
+    const trimmed = target.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('file://')) return trimmed;
+    const resolved = resolveScriptPath(this.config.projectDir, trimmed);
+    return pathToFileURL(resolved).href;
   }
 
   async addSubtitle(videoPath: string, subtitlePath: string): Promise<string> {

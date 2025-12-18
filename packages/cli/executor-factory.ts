@@ -1,8 +1,14 @@
-import type { CodeExecutor } from '@tutolang/types';
+import type { CodeExecutor, BrowserExecutor } from '@tutolang/types';
 import { resolve } from 'node:path';
-import type { CodeExecutorConfig, VSCodeCodeExecutorConfig } from './config-loader.ts';
+import type {
+  BrowserExecutorConfig,
+  CodeExecutorConfig,
+  PuppeteerBrowserExecutorConfig,
+  VSCodeCodeExecutorConfig,
+} from './config-loader.ts';
 
 type VSCodeExecutorModule = typeof import('../vscode-executor/index.ts');
+type BrowserExecutorModule = typeof import('../../executor/browser/src/index.ts');
 
 export async function createCodeExecutor(
   config: CodeExecutorConfig | undefined,
@@ -19,11 +25,34 @@ export async function createCodeExecutor(
   return undefined;
 }
 
+export async function createBrowserExecutor(
+  config: BrowserExecutorConfig | undefined,
+  options: { outputDir?: string } = {},
+): Promise<BrowserExecutor | undefined> {
+  if (!config || config.type === 'none') return undefined;
+
+  if (config.type === 'puppeteer') {
+    const mod = await loadBrowserExecutor();
+    const { PuppeteerExecutor } = mod;
+    return new PuppeteerExecutor(buildBrowserOptions(config, options.outputDir));
+  }
+
+  return undefined;
+}
+
 async function loadVSCodeExecutor(): Promise<VSCodeExecutorModule> {
   try {
     return (await import('@tutolang/vscode-executor')) as VSCodeExecutorModule;
   } catch {
     return (await import('../vscode-executor/index.ts')) as VSCodeExecutorModule;
+  }
+}
+
+async function loadBrowserExecutor(): Promise<BrowserExecutorModule> {
+  try {
+    return (await import('@tutolang/executor-browser')) as BrowserExecutorModule;
+  } catch {
+    return (await import('../../executor/browser/src/index.ts')) as BrowserExecutorModule;
   }
 }
 
@@ -55,3 +84,14 @@ function buildVSCodeOptions(
   };
 }
 
+function buildBrowserOptions(
+  config: PuppeteerBrowserExecutorConfig,
+  outputDir?: string,
+): ConstructorParameters<BrowserExecutorModule['PuppeteerExecutor']>[0] {
+  return {
+    headless: config.headless,
+    executablePath: config.executablePath,
+    viewport: config.viewport,
+    screenshotDir: config.screenshotDir ?? (outputDir ? resolve(outputDir, 'browser-captures') : undefined),
+  };
+}

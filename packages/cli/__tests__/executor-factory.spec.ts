@@ -3,11 +3,31 @@ import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { createCodeExecutor } from '../executor-factory.ts';
+import { createBrowserExecutor, createCodeExecutor } from '../executor-factory.ts';
 
 test('createCodeExecutor 在未配置/none 时应返回 undefined', async () => {
   assert.equal(await createCodeExecutor(undefined), undefined);
   assert.equal(await createCodeExecutor({ type: 'none' }), undefined);
+});
+
+test('createBrowserExecutor 在未配置/none 时应返回 undefined', async () => {
+  assert.equal(await createBrowserExecutor(undefined), undefined);
+  assert.equal(await createBrowserExecutor({ type: 'none' }), undefined);
+});
+
+test('createBrowserExecutor(puppeteer) 应返回 BrowserExecutor 实例（无需在创建时安装 puppeteer）', async () => {
+  const workDir = await mkdtemp(join(tmpdir(), 'tutolang-cli-browser-executor-test-'));
+  const executor = await createBrowserExecutor(
+    {
+      type: 'puppeteer',
+      headless: true,
+      screenshotDir: join(workDir, 'shots'),
+      viewport: { width: 1280, height: 720 },
+    },
+    { outputDir: workDir },
+  );
+  assert.ok(executor, '应创建 BrowserExecutor 实例');
+  assert.equal(executor.name, 'browser');
 });
 
 test('createCodeExecutor(vscode) 缺少 argsTemplate 时应抛错', async () => {
@@ -90,4 +110,3 @@ process.exit(0);
     else process.env.CAPTURE_ARGS_PATH = previousCapture;
   }
 });
-

@@ -19,11 +19,26 @@ export type VSCodeCodeExecutorConfig = {
 
 export type CodeExecutorConfig = VSCodeCodeExecutorConfig | { type: 'none' };
 
+export type PuppeteerBrowserExecutorConfig = {
+  type: 'puppeteer';
+  headless?: boolean;
+  executablePath?: string;
+  screenshotDir?: string;
+  viewport?: {
+    width?: number;
+    height?: number;
+    deviceScaleFactor?: number;
+  };
+};
+
+export type BrowserExecutorConfig = PuppeteerBrowserExecutorConfig | { type: 'none' };
+
 export type TutolangCliConfig = {
   language?: string;
   runtime?: RuntimeConfig;
   executors?: {
     code?: CodeExecutorConfig;
+    browser?: BrowserExecutorConfig;
   };
 };
 
@@ -107,11 +122,16 @@ function normalizeConfig(raw: unknown): TutolangCliConfig {
 
   const executors = isPlainObject(record.executors) ? record.executors : undefined;
   const codeExecutor = executors && 'code' in executors ? normalizeCodeExecutor(executors.code) : undefined;
+  const browserExecutor = executors && 'browser' in executors ? normalizeBrowserExecutor(executors.browser) : undefined;
+
+  const normalizedExecutors: NonNullable<TutolangCliConfig['executors']> = {};
+  if (codeExecutor) normalizedExecutors.code = codeExecutor;
+  if (browserExecutor) normalizedExecutors.browser = browserExecutor;
 
   return {
     language,
     runtime,
-    executors: codeExecutor ? { code: codeExecutor } : undefined,
+    executors: Object.keys(normalizedExecutors).length > 0 ? normalizedExecutors : undefined,
   };
 }
 
@@ -166,6 +186,38 @@ function normalizeCodeExecutor(raw: unknown): CodeExecutorConfig | undefined {
     requestTimeoutMs: typeof record.requestTimeoutMs === 'number' ? record.requestTimeoutMs : undefined,
     typingDelayMs: typeof record.typingDelayMs === 'number' ? record.typingDelayMs : undefined,
     recording: mergedRecording,
+  };
+}
+
+function normalizeBrowserExecutor(raw: unknown): BrowserExecutorConfig | undefined {
+  if (!raw) return undefined;
+  if (typeof raw !== 'object') {
+    throw new Error(`executors.browser 必须为对象，实际是 ${typeof raw}`);
+  }
+
+  const record = raw as Record<string, unknown>;
+  const typeValue = record.type;
+  if (typeValue === 'none') return { type: 'none' };
+  if (typeValue !== 'puppeteer') {
+    throw new Error(`未知的 executors.browser.type：${String(typeValue)}（当前仅支持 puppeteer/none）`);
+  }
+
+  const viewport = isPlainObject(record.viewport) ? (record.viewport as Record<string, unknown>) : undefined;
+  const viewportConfig =
+    viewport
+      ? {
+          width: typeof viewport.width === 'number' ? viewport.width : undefined,
+          height: typeof viewport.height === 'number' ? viewport.height : undefined,
+          deviceScaleFactor: typeof viewport.deviceScaleFactor === 'number' ? viewport.deviceScaleFactor : undefined,
+        }
+      : undefined;
+
+  return {
+    type: 'puppeteer',
+    headless: typeof record.headless === 'boolean' ? record.headless : undefined,
+    executablePath: typeof record.executablePath === 'string' ? record.executablePath : undefined,
+    screenshotDir: typeof record.screenshotDir === 'string' ? resolve(process.cwd(), record.screenshotDir) : undefined,
+    viewport: viewportConfig,
   };
 }
 

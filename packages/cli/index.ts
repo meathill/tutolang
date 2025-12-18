@@ -3,7 +3,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { basename } from 'node:path';
 import { loadCliConfig } from './config-loader.ts';
-import { createCodeExecutor } from './executor-factory.ts';
+import { createBrowserExecutor, createCodeExecutor } from './executor-factory.ts';
 type TutolangCoreConstructor = (typeof import('../core/index.ts')).default;
 type RunMockFromFile = typeof import('../core/mock.ts').runMockFromFile;
 
@@ -122,7 +122,8 @@ async function main() {
       const outputPath = resolve(process.cwd(), output);
       const outputVideo = resolve(outputPath, `${basename(input, '.tutolang')}.mp4`);
       const codeExecutor = await createCodeExecutor(loaded.config.executors?.code, { outputDir: outputPath });
-      await tutolang.executeFile(inputPath, outputPath, outputVideo, { runtimeConfig, codeExecutor });
+      const browserExecutor = await createBrowserExecutor(loaded.config.executors?.browser, { outputDir: outputPath });
+      await tutolang.executeFile(inputPath, outputPath, outputVideo, { runtimeConfig, codeExecutor, browserExecutor });
       console.log('Video generation complete! 输出文件：', outputVideo);
     }
   } catch (error) {

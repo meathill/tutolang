@@ -1,8 +1,12 @@
 {
   "name": "@tutolang/executor-browser",
   "version": "0.1.0",
-  "description": "Browser executor for Tutolang",
-  "main": "src/index.ts",
+  "description": "浏览器执行器（Puppeteer 截图预览）",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {},
   "dependencies": {
     "@tutolang/types": "workspace:*"

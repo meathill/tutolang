@@ -8,6 +8,7 @@
 - 本机可执行 `ffmpeg` / `ffprobe`
 - 可选：Gemini TTS（设置 `GOOGLE_API_KEY`，否则会自动降级为静音解说）
 - 可选：VSCode 录屏（启动 `executor/vscode` 的 Extension Host，并配置录屏参数模板）
+- 可选：浏览器预览（Puppeteer 截图，将页面截图转成视频片段；需安装 `puppeteer` 或 `puppeteer-core`）
 
 ## 快速开始（开发态）
 
@@ -109,6 +110,31 @@ CommonJS 配置请命名为 `tutolang.config.cjs` 并使用 `module.exports = { 
 
 更完整的步骤与注意事项见 `executor/vscode/README.md`。
 录屏参数模板示例见 `docs/recording.md`（包含 macOS avfoundation 示例）。
+
+#### 浏览器预览说明（MVP）
+
+启用浏览器执行器后（`executors.browser.type = "puppeteer"`），`browser ...` 区块以及其中的 `[click]`/`[highlight]` 会在渲染视频时用「截图 → 视频片段」的方式产出画面（目前不做真实录屏）。
+
+依赖（二选一）：
+
+```bash
+pnpm -w add -D puppeteer
+# 或使用系统 Chrome（更轻，但需要你自己提供可执行文件路径时再配置 executablePath）
+pnpm -w add -D puppeteer-core
+```
+
+配置示例：
+
+```ts
+executors: {
+  browser: {
+    type: 'puppeteer',
+    headless: true,
+    screenshotDir: 'dist/browser-captures',
+    viewport: { width: 1280, height: 720 },
+  },
+}
+```
 
 ## 文档
 

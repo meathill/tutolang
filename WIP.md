@@ -125,6 +125,15 @@
   - [x] 设置好 `TUTOLANG_RECORD_ARGS_JSON`（包含 `{output}`）；
   - [x] 运行 demo / 运行 sample，确认生成 mp4 能播放、片段能合并、音画时长合理。
 
+## 下一步（2025-12-18 浏览器预览 MVP）
+- 目标：让 `browser` 区块能产出「真实页面画面」，先用截图生成视频片段（MVP），后续再补浏览器录屏。
+- TODO：
+  - [ ] Runtime：支持 “图片/截图” 片段（基于 ffmpeg 将图片转成标准 segment），并让 `browser()/click()/highlight()` 在有 `browserExecutor` 时用截图代替文字 slide。
+  - [ ] CLI：支持 `executors.browser` 配置与工厂创建（类似 `executors.code`），并注入 Core/Runtime。
+  - [ ] executor/browser：实现 PuppeteerExecutor 的基础能力（launch/newPage/navigate/click/type/highlight/screenshot）。
+  - [ ] 测试：补齐 Runtime/CLI 的单测（不依赖真实浏览器/ffmpeg）。
+  - [ ] 文档：补配置与使用说明（安装依赖、常见坑、示例脚本）。
+
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
 2. **AST 与生成**：根据 `@tutolang/types` 扩充必要字段（如 marker 参数/类型），实现 CodeGenerator 输出调用 Runtime 的 TS 代码。

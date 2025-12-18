@@ -53,5 +53,17 @@ export default {
         // export TUTOLANG_RECORD_ARGS_JSON='[\"-y\",\"-f\",\"avfoundation\",\"-framerate\",\"30\",\"-i\",\"1:none\",\"-pix_fmt\",\"yuv420p\",\"-c:v\",\"libx264\",\"-preset\",\"ultrafast\",\"-crf\",\"23\",\"-movflags\",\"+faststart\",\"{output}\"]'
       },
     },
+
+    // 可选：浏览器预览（当前为“截图生成视频片段”的 MVP）
+    // 需要额外安装依赖（其一即可）：
+    // - pnpm -w add -D puppeteer
+    // - pnpm -w add -D puppeteer-core
+    //
+    // browser: {
+    //   type: 'puppeteer',
+    //   headless: true,
+    //   screenshotDir: 'dist/browser-captures',
+    //   viewport: { width: 1280, height: 720 },
+    // },
   },
 } as const;

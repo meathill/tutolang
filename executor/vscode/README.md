@@ -49,6 +49,32 @@ node --experimental-strip-types --experimental-transform-types scripts/generate-
 - 若未设置 `GOOGLE_API_KEY`，仍可生成视频，但解说会静音（片段会注入静音音轨以保证可合并）。
 - 录屏模板可录全屏或指定窗口；Runtime 会在转码阶段统一分辨率/fps/编码参数，以便用 concat + `-c copy` 合并。
 
+## 快速跑通（推荐：CLI + 配置文件）
+
+1. 启动 Extension Host（Run Extension），确认 Output 面板里有类似：
+   - `[rpc] listening on http://127.0.0.1:4001/rpc`
+2. 生成 VSCode 配置（会生成 `./tutolang.config.ts`）：
+
+   ```bash
+   pnpm init-config -- --template vscode
+   ```
+
+3. 设置录屏模板（macOS 需要先按 `docs/recording.md` 找到屏幕编号；例如你目前是 `4`）：
+
+   ```bash
+   export TUTOLANG_RECORD_ARGS_JSON='["-y","-f","avfoundation","-framerate","30","-i","4:none","-pix_fmt","yuv420p","-c:v","libx264","-preset","ultrafast","-crf","23","-movflags","+faststart","{output}"]'
+   ```
+
+4. 运行 CLI 生成视频（示例）：
+
+   ```bash
+   node --experimental-strip-types --experimental-transform-types packages/cli/index.ts -i sample/hello-world.tutolang -o dist
+   ```
+
+输出：
+- 最终视频：`dist/hello-world.mp4`
+- 录屏 raw 片段：`dist/captures/`（由 `tutolang.config.ts` 的 `recording.outputDir` 决定）
+
 ## 录屏（可选）
 
 录屏在 Node 侧由 `@tutolang/vscode-executor` 通过 ffmpeg 启动/停止，扩展本身不做屏幕录制。

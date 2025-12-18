@@ -83,6 +83,87 @@ export async function createSlideSegment(options: {
   return segmentPath;
 }
 
+export async function createImageSlideSegment(options: {
+  config: RuntimeConfig;
+  media: MediaTools;
+  tempDir: string;
+  segmentIndex: number;
+  imagePath: string;
+  text?: string;
+  duration?: number;
+  audioPath?: string;
+  slideOptions?: SlideOptions;
+}): Promise<string> {
+  const segmentPath = join(options.tempDir, `${options.segmentIndex.toString().padStart(4, '0')}.mp4`);
+
+  const width = getStandardWidth(options.config);
+  const height = getStandardHeight(options.config);
+  const fps = getStandardFps(options.config);
+  const sampleRate = getStandardSampleRate(options.config);
+
+  const args: string[] = ['-y', '-loop', '1', '-i', options.imagePath];
+
+  if (options.audioPath) args.push('-i', options.audioPath);
+  else args.push('-f', 'lavfi', '-i', `anullsrc=channel_layout=mono:sample_rate=${sampleRate}`);
+
+  let targetDuration = options.duration ?? 2;
+  if (options.audioPath) {
+    const audioDuration = await options.media.getMediaDuration(options.audioPath);
+    if (audioDuration) {
+      targetDuration = Math.max(targetDuration, audioDuration + 0.2);
+    } else if (options.duration === undefined && options.text) {
+      targetDuration = Math.max(targetDuration, estimateDuration(options.text, options.config));
+    }
+  } else if (options.duration === undefined && options.text) {
+    targetDuration = estimateDuration(options.text, options.config);
+  }
+
+  const vfFilters: string[] = [
+    `scale=${width}:${height}:force_original_aspect_ratio=decrease`,
+    `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
+    'setsar=1',
+    `fps=${fps}`,
+    'format=yuv420p',
+  ];
+
+  if (options.text) {
+    const normalized = options.text.replace(/\r\n/g, '\n');
+    const textFile = `${segmentPath}.txt`;
+    await writeFile(textFile, normalized, 'utf-8');
+
+    const font = '/System/Library/Fonts/Supplemental/Arial.ttf';
+    const layout = options.slideOptions?.layout ?? 'center';
+    const escapedTextFile = textFile.replace(/:/g, '\\:');
+    const draw =
+      layout === 'code'
+        ? `drawtext=fontfile=${font}:textfile=${escapedTextFile}:fontcolor=white:fontsize=26:box=1:boxcolor=0x000000cc:boxborderw=18:x=60:y=60:line_spacing=6`
+        : `drawtext=fontfile=${font}:textfile=${escapedTextFile}:fontcolor=white:fontsize=32:box=1:boxcolor=0x00000099:boxborderw=20:x=(w-text_w)/2:y=(h-text_h)/2:line_spacing=6`;
+    vfFilters.push(draw);
+  }
+
+  args.push('-vf', vfFilters.join(','));
+  args.push('-af', `apad=whole_dur=${targetDuration}`, '-map', '0:v:0', '-map', '1:a:0');
+  args.push(
+    '-t',
+    `${targetDuration}`,
+    '-c:v',
+    'libx264',
+    '-c:a',
+    'aac',
+    '-ac',
+    '1',
+    '-ar',
+    `${sampleRate}`,
+    '-pix_fmt',
+    'yuv420p',
+    '-shortest',
+    segmentPath,
+  );
+
+  await options.media.runFFmpeg(args);
+  return segmentPath;
+}
+
 export async function transcodeCaptureToSegment(options: {
   config: RuntimeConfig;
   media: MediaTools;
@@ -139,4 +220,3 @@ function estimateDuration(text: string, config: RuntimeConfig): number {
   const estimate = base / rate;
   return Math.min(Math.max(estimate, 1.8), 15);
 }
-

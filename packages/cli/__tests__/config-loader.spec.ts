@@ -54,6 +54,35 @@ test('loadCliConfig 应支持从当前目录加载 tutolang.config.ts，并规�
   });
 });
 
+test('loadCliConfig 应支持 executors.browser(puppeteer)，并规范化 screenshotDir', async () => {
+  await withTempCwd(async (cwd) => {
+    const configPath = join(cwd, 'tutolang.config.ts');
+    await writeFile(
+      configPath,
+      `export default {
+  executors: {
+    browser: {
+      type: 'puppeteer',
+      headless: false,
+      screenshotDir: 'dist/browser-captures',
+      viewport: { width: 1280, height: 720, deviceScaleFactor: 2 },
+    },
+  },
+} as const;`,
+      'utf-8',
+    );
+
+    const loaded = await loadCliConfig();
+    assert.equal(loaded.path, configPath);
+
+    const browser = loaded.config.executors?.browser;
+    assert.ok(browser && browser.type === 'puppeteer');
+    assert.equal(browser.headless, false);
+    assert.equal(browser.screenshotDir, join(cwd, 'dist', 'browser-captures'));
+    assert.deepEqual(browser.viewport, { width: 1280, height: 720, deviceScaleFactor: 2 });
+  });
+});
+
 test('loadCliConfig 应兼容把 RuntimeConfig 写在配置根对象，并将 ffmpeg 字符串转为 { ffmpeg: { path } }', async () => {
   await withTempCwd(async (cwd) => {
     const configPath = join(cwd, 'tutolang.config.ts');
