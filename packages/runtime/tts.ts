@@ -3,6 +3,9 @@ import { basename, join } from 'node:path';
 import { GoogleGenAI } from '@google/genai';
 import { DiskCache, resolveCacheRootDir } from './ai-cache.ts';
 
+type GenerateContentInput = Parameters<GoogleGenAI['models']['generateContent']>[0];
+type GenerateContentResult = Awaited<ReturnType<GoogleGenAI['models']['generateContent']>>;
+
 export interface TTSOptions {
   apiKey?: string;
   model?: string;
@@ -101,16 +104,17 @@ export class TTS {
       };
 
       const response = await this.withRetry(
-        async () => client.models.generateContent(args as any),
+        async () =>
+          (await client.models.generateContent(args as unknown as GenerateContentInput)) as unknown as GenerateContentResult,
         merged.maxRetries ?? DEFAULT_RETRY,
       );
 
-      const inlineData = response?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData)?.inlineData;
-      if (!inlineData?.data) {
+      const base64 = extractInlineAudioBase64(response);
+      if (!base64) {
         throw new Error('TTS 响应缺少音频数据');
       }
 
-      const pcmBuffer = Buffer.from(inlineData.data as string, 'base64');
+      const pcmBuffer = Buffer.from(base64, 'base64');
       const sampleRate = merged.sampleRateHertz ?? DEFAULT_SAMPLE_RATE;
       return this.wrapWav(pcmBuffer, sampleRate);
     });
@@ -233,4 +237,24 @@ export class TTS {
       }
     }
   }
+}
+
+function extractInlineAudioBase64(response: unknown): string | undefined {
+  if (!response || typeof response !== 'object') return undefined;
+  const candidates = (response as Record<string, unknown>).candidates;
+  if (!Array.isArray(candidates) || candidates.length === 0) return undefined;
+  const first = candidates[0];
+  if (!first || typeof first !== 'object') return undefined;
+  const content = (first as Record<string, unknown>).content;
+  if (!content || typeof content !== 'object') return undefined;
+  const parts = (content as Record<string, unknown>).parts;
+  if (!Array.isArray(parts) || parts.length === 0) return undefined;
+  for (const part of parts) {
+    if (!part || typeof part !== 'object') continue;
+    const inlineData = (part as Record<string, unknown>).inlineData;
+    if (!inlineData || typeof inlineData !== 'object') continue;
+    const data = (inlineData as Record<string, unknown>).data;
+    if (typeof data === 'string' && data) return data;
+  }
+  return undefined;
 }

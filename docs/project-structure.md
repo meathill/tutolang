@@ -60,7 +60,8 @@ Plugin architecture for extensibility.
 Runtime functions called by generated code.
 
 **Key files:**
-- `index.ts` - Runtime class and helper functions
+- `index.ts` - Package exports (barrel)
+- `runtime.ts` - Runtime class (main implementation)
 
 **Responsibilities:**
 - TTS generation
@@ -84,6 +85,8 @@ Command-line interface.
 
 **Key files:**
 - `index.ts` - CLI entry point
+- `config-loader.ts` - CLI config loader (`tutolang.config.*`)
+- `executor-factory.ts` - Build CodeExecutor instances from config
 
 **Responsibilities:**
 - Parse command-line arguments
@@ -94,12 +97,11 @@ Command-line interface.
 Configuration management.
 
 **Key files:**
-- `index.ts` - Config loader
+- `index.ts` - (placeholder)
 
 **Responsibilities:**
-- Load config from files
-- Merge default and user config
-- Validate configuration
+- (TBD) Future shared config utilities
+- 当前 CLI 配置加载在 `packages/cli/config-loader.ts`
 
 ### packages/utils
 Shared utilities.
@@ -175,5 +177,5 @@ pnpm test
 
 ### Lint
 ```bash
-pnpm eslint
+pnpm lint
 ```

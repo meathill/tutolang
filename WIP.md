@@ -29,6 +29,16 @@
   - [x] Runtime MVP：提供 say/file/browser/video/merge 的 stub，实现日志化输出，便于 e2e。
   - [x] CLI：打通 `compileFile/executeFile` 的输入/输出路径（写入生成的 TS 并可直接执行）。
 
+## 本次整理（2025-12-18 工程与文档）
+- 目标：让「VSCode 录屏 + 配置 + CLI」更容易跑通，并清理工程质量问题（大文件/缺测试/文档缺口）。
+- TODO：
+  - [x] 增加录屏参数模板文档：`docs/recording.md`（macOS avfoundation 示例）。
+  - [x] 增加配置模板与一键生成：`docs/templates/*` + `pnpm init-config`。
+  - [x] 拆分 `packages/runtime/index.ts`（避免单文件过大）。
+  - [x] 拆分 Runtime 单测（避免单文件过大）。
+  - [x] 补齐 CLI 配置加载与执行器工厂单测（`packages/cli/__tests__/*`）。
+  - [x] 补齐常规文档：`TESTING.md` / `DEV_NOTE.md`。
+
 ## 本次任务（2025-12-17）
 - 目标：落地 Runtime 的 TTS 能力，集成 Gemini-2.5-flash-preview-tts，生成可用语音片段并与视频片段衔接。
 - TODO：

@@ -128,7 +128,7 @@ async function main() {
 
   const url = pathToFileURL(compiledPath).href;
   const mod = await import(url);
-  const runner = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
+  const runner = resolveRunner(mod);
   if (typeof runner !== 'function') {
     console.error('编译产物未导出可执行的 run()，请检查编译器输出。');
     process.exit(1);
@@ -172,3 +172,27 @@ main().catch((error) => {
   console.error('生成失败：', error);
   process.exit(1);
 });
+
+type RunnerOptions = { output?: string };
+type Runner = (runtime: Runtime, options?: RunnerOptions) => unknown | Promise<unknown>;
+
+function resolveRunner(mod: unknown): Runner | undefined {
+  const record = isRecord(mod) ? mod : undefined;
+  if (!record) return undefined;
+
+  const direct = record.run;
+  if (typeof direct === 'function') return direct as Runner;
+
+  const def = record.default;
+  if (typeof def === 'function') return def as Runner;
+
+  if (!isRecord(def)) return undefined;
+  const defRun = def.run;
+  if (typeof defRun === 'function') return defRun as Runner;
+
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}

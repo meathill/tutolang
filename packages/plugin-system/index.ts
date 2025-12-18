@@ -15,42 +15,60 @@ export class PluginManager {
     this.plugins = this.plugins.filter((p) => p.name !== pluginName);
   }
 
-  async callHook(hookName: keyof PluginHooks, ...args: any[]): Promise<any> {
-    let result = args[0];
+  async beforeParse(code: string): Promise<string> {
+    let result = code;
     for (const plugin of this.plugins) {
-      const hook = plugin.hooks[hookName];
+      const hook = plugin.hooks.beforeParse;
       if (!hook) continue;
-      // hooks 可以返回修改后的值，也可以返回 undefined
-      const maybe = await (hook as any)(result, ...args.slice(1));
-      if (maybe !== undefined) {
-        result = maybe;
-      }
+      result = (await hook(result)) ?? result;
     }
     return result;
   }
 
-  async beforeParse(code: string): Promise<string> {
-    return this.callHook('beforeParse', code);
-  }
-
   async afterParse(ast: AST): Promise<AST> {
-    return this.callHook('afterParse', ast);
+    let result = ast;
+    for (const plugin of this.plugins) {
+      const hook = plugin.hooks.afterParse;
+      if (!hook) continue;
+      result = (await hook(result)) ?? result;
+    }
+    return result;
   }
 
   async beforeCompile(ast: AST): Promise<AST> {
-    return this.callHook('beforeCompile', ast);
+    let result = ast;
+    for (const plugin of this.plugins) {
+      const hook = plugin.hooks.beforeCompile;
+      if (!hook) continue;
+      result = (await hook(result)) ?? result;
+    }
+    return result;
   }
 
   async afterCompile(code: string): Promise<string> {
-    return this.callHook('afterCompile', code);
+    let result = code;
+    for (const plugin of this.plugins) {
+      const hook = plugin.hooks.afterCompile;
+      if (!hook) continue;
+      result = (await hook(result)) ?? result;
+    }
+    return result;
   }
 
   async beforeExecute(): Promise<void> {
-    await this.callHook('beforeExecute');
+    for (const plugin of this.plugins) {
+      const hook = plugin.hooks.beforeExecute;
+      if (!hook) continue;
+      await hook();
+    }
   }
 
   async afterExecute(): Promise<void> {
-    await this.callHook('afterExecute');
+    for (const plugin of this.plugins) {
+      const hook = plugin.hooks.afterExecute;
+      if (!hook) continue;
+      await hook();
+    }
   }
 }
 

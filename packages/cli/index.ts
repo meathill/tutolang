@@ -4,27 +4,22 @@ import { hideBin } from 'yargs/helpers';
 import { basename } from 'node:path';
 import { loadCliConfig } from './config-loader.ts';
 import { createCodeExecutor } from './executor-factory.ts';
-type TutolangCoreType = typeof import('../core/index');
-type RunMock = typeof import('../core/mock').runMockFromFile;
+type TutolangCoreConstructor = (typeof import('../core/index.ts')).default;
+type RunMockFromFile = typeof import('../core/mock.ts').runMockFromFile;
 
-async function loadCore(): Promise<TutolangCoreType['default']> {
-  try {
-    const mod = await import('@tutolang/core');
-    return (mod as any).default ?? (mod as any);
-  } catch {
-    const mod = await import('../core/index.ts');
-    return (mod as any).default ?? (mod as any);
-  }
+async function loadCore(): Promise<TutolangCoreConstructor> {
+  const mod = await importOptional('@tutolang/core', () => import('../core/index.ts'));
+  const unwrapped = unwrapModuleDefault(mod);
+  if (typeof unwrapped === 'function') return unwrapped as TutolangCoreConstructor;
+  throw new Error('无法加载 @tutolang/core');
 }
 
-async function loadMock(): Promise<RunMock> {
-  try {
-    const mod = await import('@tutolang/core/mock');
-    return (mod as any).runMockFromFile;
-  } catch {
-    const mod = await import('../core/mock.ts');
-    return (mod as any).runMockFromFile;
+async function loadMock(): Promise<RunMockFromFile> {
+  const mod = await importOptional('@tutolang/core/mock', () => import('../core/mock.ts'));
+  if (!isRecord(mod) || typeof mod.runMockFromFile !== 'function') {
+    throw new Error('无法加载 mock：缺少 runMockFromFile 导出');
   }
+  return mod.runMockFromFile as RunMockFromFile;
 }
 
 const argv = yargs(hideBin(process.argv))
@@ -137,3 +132,22 @@ async function main() {
 }
 
 main();
+
+async function importOptional<T>(path: string, fallback: () => Promise<T>): Promise<T> {
+  try {
+    return (await import(path)) as T;
+  } catch {
+    return await fallback();
+  }
+}
+
+function unwrapModuleDefault(mod: unknown): unknown {
+  if (!mod || typeof mod !== 'object') return mod;
+  const record = mod as Record<string, unknown>;
+  if ('default' in record) return record.default;
+  return mod;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}

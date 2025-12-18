@@ -8,7 +8,7 @@
     "node": ">=24.0.0 <25.0.0"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --experimental-transform-types --test tests/core/index.test.ts tests/core/compiler.spec.ts tests/mock-e2e.spec.ts packages/parser/__tests__/parser.spec.ts packages/runtime/__tests__/tts.spec.ts packages/runtime/__tests__/runtime.spec.ts",
+    "test": "node --experimental-strip-types --experimental-transform-types --test tests/core/index.test.ts tests/core/compiler.spec.ts tests/mock-e2e.spec.ts packages/cli/__tests__/config-loader.spec.ts packages/cli/__tests__/executor-factory.spec.ts packages/parser/__tests__/parser.spec.ts packages/runtime/__tests__/tts.spec.ts packages/runtime/__tests__/slides.spec.ts packages/runtime/__tests__/narration.spec.ts packages/runtime/__tests__/recording.spec.ts",
     "lint": "biome format --write",
     "publish": "",
     "mock-sample": "node --experimental-strip-types --experimental-transform-types scripts/mock-runner.ts",

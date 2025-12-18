@@ -20,11 +20,7 @@ export interface ASTNode {
 
 export interface SayNode extends ASTNode {
   type: NodeType.Say;
-  params?: {
-    image?: string;
-    video?: string;
-    browser?: string;
-  };
+  params?: Record<string, string>;
   content: string;
 }
 
@@ -45,7 +41,7 @@ export interface MarkerNode extends ASTNode {
   type: NodeType.Marker;
   markerType: 'start' | 'end' | 'line' | 'edit' | 'click' | 'highlight';
   lineNumber?: number;
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
   content?: string;
 }
 

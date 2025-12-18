@@ -47,9 +47,11 @@ export default {
         // argsTemplate: ['-y', '...', '{output}'],
         //
         // 示例（仅占位，需按系统补全）：
-        // export TUTOLANG_RECORD_ARGS_JSON='[\"-y\", \"...\", \"{output}\"]'
+        // macOS（avfoundation）示例：
+        // 1) ffmpeg -f avfoundation -list_devices true -i \"\"
+        // 2) 把下面的 \"1:none\" 改成你的屏幕编号
+        // export TUTOLANG_RECORD_ARGS_JSON='[\"-y\",\"-f\",\"avfoundation\",\"-framerate\",\"30\",\"-i\",\"1:none\",\"-pix_fmt\",\"yuv420p\",\"-c:v\",\"libx264\",\"-preset\",\"ultrafast\",\"-crf\",\"23\",\"-movflags\",\"+faststart\",\"{output}\"]'
       },
     },
   },
 } as const;
-

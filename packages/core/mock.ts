@@ -98,17 +98,23 @@ function mapMarkerToAction(marker: MarkerNode, path: string): Action[] {
       actions.push({ type: 'editLine', path, lineNumber: marker.lineNumber ?? 0, text });
       return actions;
     case 'highlight':
-      actions.push({ type: 'highlight', selector: marker.params?.selector ?? '' });
+      actions.push({ type: 'highlight', selector: readStringParam(marker.params, 'selector') ?? '' });
       if (text) actions.push({ type: 'say', text });
       return actions;
     case 'click':
-      actions.push({ type: 'highlight', selector: marker.params?.selector ?? '' });
+      actions.push({ type: 'highlight', selector: readStringParam(marker.params, 'selector') ?? '' });
       if (text) actions.push({ type: 'say', text });
       return actions;
     default:
       if (text) actions.push({ type: 'say', text });
       return actions;
   }
+}
+
+function readStringParam(params: Record<string, unknown> | undefined, key: string): string | undefined {
+  if (!params) return undefined;
+  const value = params[key];
+  return typeof value === 'string' ? value : undefined;
 }
 
 export function formatActions(actions: Action[]): string {

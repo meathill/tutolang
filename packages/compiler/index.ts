@@ -122,13 +122,13 @@ if (import.meta.main) {
       case 'edit':
         return `  await runtime.editLine(${this.quote(path)}, ${marker.lineNumber ?? 0}, ${content});`;
       case 'highlight': {
-        const selector = marker.params?.selector ?? '';
+        const selector = this.readStringParam(marker.params, 'selector') ?? '';
         const highlight = `  await runtime.highlight(${this.quote(selector)});`;
         if (content === 'undefined') return highlight;
         return `${highlight}\n  await runtime.say(${content});`;
       }
       case 'click': {
-        const selector = marker.params?.selector ?? '';
+        const selector = this.readStringParam(marker.params, 'selector') ?? '';
         const click = `  await runtime.click(${this.quote(selector)});`;
         if (content === 'undefined') return click;
         return `${click}\n  await runtime.say(${content});`;
@@ -145,5 +145,11 @@ if (import.meta.main) {
   private toObjectLiteral(obj: Record<string, string>): string {
     const entries = Object.entries(obj).map(([k, v]) => `${k}: ${this.quote(v)}`);
     return `{ ${entries.join(', ')} }`;
+  }
+
+  private readStringParam(params: Record<string, unknown> | undefined, key: string): string | undefined {
+    if (!params) return undefined;
+    const value = params[key];
+    return typeof value === 'string' ? value : undefined;
   }
 }

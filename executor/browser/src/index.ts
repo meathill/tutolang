@@ -7,7 +7,7 @@ import { BrowserExecutor } from '@tutolang/types';
 export class PuppeteerExecutor implements BrowserExecutor {
   name = 'browser';
   private recording = false;
-  private page?: any; // Puppeteer page
+  private page?: unknown; // Puppeteer page（占位，待接入 puppeteer 类型）
 
   async initialize(): Promise<void> {
     // TODO: Launch Puppeteer browser

@@ -214,7 +214,7 @@ export class Parser {
     ctx: ParseContext,
     markerType: MarkerNode['markerType'],
     lineNumber?: number,
-    params?: Record<string, any>,
+    params?: Record<string, unknown>,
     content?: string,
   ): MarkerNode {
     return {

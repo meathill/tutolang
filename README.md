@@ -108,6 +108,7 @@ CommonJS 配置请命名为 `tutolang.config.cjs` 并使用 `module.exports = { 
 - 或环境变量 `TUTOLANG_RECORD_ARGS_JSON`（JSON 字符串数组，必须包含 `{output}` 占位符）
 
 更完整的步骤与注意事项见 `executor/vscode/README.md`。
+录屏参数模板示例见 `docs/recording.md`（包含 macOS avfoundation 示例）。
 
 ## 文档
 
@@ -115,6 +116,9 @@ CommonJS 配置请命名为 `tutolang.config.cjs` 并使用 `module.exports = { 
 - `docs/architecture.md`：架构设计
 - `docs/project-structure.md`：目录结构
 - `executor/vscode/README.md`：VSCode 扩展与录屏说明
+- `docs/recording.md`：ffmpeg 录屏参数模板（macOS 示例）
+- `TESTING.md`：测试指南
+- `DEV_NOTE.md`：开发环境与常见坑
 
 ## License
 

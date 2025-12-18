@@ -1,0 +1,365 @@
+import type { RuntimeConfig, CodeExecutor, BrowserExecutor } from '@tutolang/types';
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { TTS } from './tts.ts';
+import { resolveScriptPath, renderFilePreview, tryReadFileLines, type FileContext } from './file-preview.ts';
+import { MediaTools } from './media-tools.ts';
+import { createSlideSegment, transcodeCaptureToSegment, type SlideOptions } from './video-segments.ts';
+
+type RuntimeFileContext = FileContext & {
+  typedLineCount: number;
+};
+
+export class Runtime {
+  private config: RuntimeConfig;
+  private codeExecutor?: CodeExecutor;
+  private browserExecutor?: BrowserExecutor;
+  private videoSegments: string[] = [];
+  private tts: TTS;
+  private actions: string[] = [];
+  private tempDir?: string;
+  private fileContexts = new Map<string, RuntimeFileContext>();
+  private media: MediaTools;
+
+  constructor(config: RuntimeConfig = {}) {
+    this.config = { renderVideo: false, ...config };
+    this.tts = new TTS({ cacheDir: config.cacheDir, ...config.tts, tempDir: config.tempDir });
+    this.media = new MediaTools(this.config);
+  }
+
+  setCodeExecutor(executor: CodeExecutor): void {
+    this.codeExecutor = executor;
+  }
+
+  setBrowserExecutor(executor: BrowserExecutor): void {
+    this.browserExecutor = executor;
+  }
+
+  getActions(): string[] {
+    return [...this.actions];
+  }
+
+  async say(content: string, options?: { image?: string; video?: string; browser?: string }): Promise<void> {
+    const extra = options ? ` ${JSON.stringify(options)}` : '';
+    this.log('say', `${content}${extra}`);
+    const audioPath = await this.generateSpeechAudio(content);
+    await this.createSlide(content, undefined, audioPath);
+  }
+
+  async file(path: string, options?: { mode?: 'i' | 'e' }): Promise<void> {
+    const mode = options?.mode;
+    this.log('file', `${path} mode=${mode ?? '-'}`);
+    const resolvedPath = resolveScriptPath(this.config.projectDir, path);
+    const shouldRecord = Boolean(this.config.renderVideo && this.codeExecutor && mode === 'i');
+    if (this.codeExecutor) {
+      await this.codeExecutor.openFile(resolvedPath, shouldRecord ? { createIfMissing: true, clear: true } : undefined);
+    }
+
+    let context: RuntimeFileContext | undefined;
+    if (this.config.renderVideo) {
+      const lines = await tryReadFileLines(resolvedPath);
+      context = {
+        displayPath: path,
+        resolvedPath,
+        mode,
+        lines,
+        revealedLineCount: mode === 'i' ? 0 : (lines?.length ?? 0),
+        typedLineCount: mode === 'i' ? 0 : (lines?.length ?? 0),
+      };
+      this.fileContexts.set(path, context);
+    }
+
+    if (shouldRecord) return;
+
+    const slideText =
+      context?.lines && context.lines.length > 0
+        ? renderFilePreview(context, { screenHeight: this.config.screen?.height })
+        : `文件：${path} 模式：${mode ?? '-'}`;
+    await this.createSlide(slideText, undefined, undefined, { layout: context?.lines?.length ? 'code' : 'center' });
+  }
+
+  async fileEnd(path: string): Promise<void> {
+    this.log('fileEnd', path);
+    const context = this.fileContexts.get(path);
+    if (this.config.renderVideo && this.codeExecutor && context?.mode === 'i') {
+      await this.flushRemainingFileLines(context);
+      this.fileContexts.delete(path);
+      return;
+    }
+    if (context?.lines && context.lines.length > 0) {
+      context.revealedLineCount = context.lines.length;
+      await this.createSlide(renderFilePreview(context, { screenHeight: this.config.screen?.height }), 1.2, undefined, {
+        layout: 'code',
+      });
+    } else {
+      await this.createSlide(`文件结束：${path}`, 1.2);
+    }
+    this.fileContexts.delete(path);
+  }
+
+  async inputLine(path: string, lineNumber?: number, text?: string): Promise<void> {
+    this.log('inputLine', `${path}:${lineNumber ?? '?'} ${text ?? ''}`.trim());
+    const context = this.fileContexts.get(path);
+    if (this.config.renderVideo && this.codeExecutor && context?.mode === 'i' && lineNumber !== undefined) {
+      await this.recordCodeSegment(context, lineNumber, text);
+      return;
+    }
+    const codeLine =
+      context?.lines && context.lines.length > 0 && lineNumber !== undefined
+        ? context.lines[lineNumber - 1]
+        : undefined;
+    if (this.codeExecutor) {
+      await this.codeExecutor.writeLine(codeLine ?? text ?? '', lineNumber);
+    }
+    const audioPath = await this.generateSpeechAudio(text);
+
+    if (context?.lines && context.lines.length > 0 && lineNumber !== undefined) {
+      if (context.mode === 'i') {
+        const nextCount = Math.max(context.revealedLineCount, lineNumber);
+        context.revealedLineCount = Math.min(nextCount, context.lines.length);
+      } else {
+        context.revealedLineCount = context.lines.length;
+      }
+      await this.createSlide(
+        renderFilePreview(context, {
+          highlightLine: lineNumber,
+          narration: text,
+          includeNarration: true,
+          screenHeight: this.config.screen?.height,
+        }),
+        1.4,
+        audioPath,
+        { layout: 'code' },
+      );
+      return;
+    }
+
+    await this.createSlide(`输入 ${path}:${lineNumber ?? '?'}\n${text ?? ''}`, 1.4, audioPath);
+  }
+
+  async editLine(path: string, lineNumber: number, text?: string): Promise<void> {
+    this.log('editLine', `${path}:${lineNumber} ${text ?? ''}`.trim());
+    const context = this.fileContexts.get(path);
+    const codeLine = context?.lines && context.lines.length > 0 ? context.lines[lineNumber - 1] : undefined;
+    if (this.codeExecutor) {
+      await this.codeExecutor.writeLine(codeLine ?? text ?? '', lineNumber);
+    }
+    const audioPath = await this.generateSpeechAudio(text);
+
+    if (context?.lines && context.lines.length > 0) {
+      context.revealedLineCount = context.lines.length;
+      await this.createSlide(
+        renderFilePreview(context, {
+          highlightLine: lineNumber,
+          narration: text,
+          includeNarration: true,
+          screenHeight: this.config.screen?.height,
+        }),
+        1.4,
+        audioPath,
+        { layout: 'code' },
+      );
+      return;
+    }
+
+    await this.createSlide(`编辑 ${path}:${lineNumber}\n${text ?? ''}`, 1.4, audioPath);
+  }
+
+  async highlight(selector: string): Promise<void> {
+    this.log('highlight', selector);
+    if (this.browserExecutor) {
+      await this.browserExecutor.highlight(selector);
+    }
+    await this.createSlide(`高亮 ${selector}`, 1);
+  }
+
+  async click(selector: string): Promise<void> {
+    this.log('click', selector);
+    if (this.browserExecutor) {
+      await this.browserExecutor.click(selector);
+    }
+    await this.createSlide(`点击 ${selector}`, 1);
+  }
+
+  async browser(path: string): Promise<void> {
+    this.log('browser', path);
+    if (this.browserExecutor) {
+      await this.browserExecutor.navigate(path);
+    }
+    await this.createSlide(`浏览：${path}`, 1.2);
+  }
+
+  async browserEnd(path: string): Promise<void> {
+    this.log('browserEnd', path);
+    await this.createSlide(`浏览结束：${path}`, 1);
+  }
+
+  async commit(commitHash: string): Promise<void> {
+    this.log('commit', commitHash);
+  }
+
+  async video(path: string): Promise<void> {
+    this.videoSegments.push(path);
+    this.log('video', path);
+  }
+
+  async merge(outputPath: string): Promise<void> {
+    const target = outputPath || join(this.tempDir ?? process.cwd(), 'tutolang-output.mp4');
+    this.log('merge', `${target} (${this.videoSegments.length} segments)`);
+    if (!this.config.renderVideo) return;
+    if (!this.videoSegments.length) {
+      await this.createSlide('暂无内容', 1);
+    }
+
+    await this.ensureTempDir();
+    await this.media.assertSegmentsCompatible(this.videoSegments);
+    const listPath = join(this.tempDir!, 'concat.txt');
+    const listContent = this.videoSegments.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n');
+    await writeFile(listPath, listContent, 'utf-8');
+    await this.media.runFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', target]);
+  }
+
+  private log(action: string, message: string): void {
+    const line = `[${action}] ${message}`;
+    this.actions.push(line);
+    console.log(line);
+  }
+
+  private async generateSpeechAudio(text?: string): Promise<string | undefined> {
+    if (!this.config.renderVideo) return undefined;
+    const trimmed = text?.trim();
+    if (!trimmed) return undefined;
+    try {
+      const audioPath = await this.tts.generate(trimmed);
+      return audioPath ?? undefined;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`[tts] 生成失败：${reason}`);
+      return undefined;
+    }
+  }
+
+  private async createSlide(text: string, duration?: number, audioPath?: string, options: SlideOptions = {}): Promise<void> {
+    if (!this.config.renderVideo) return;
+    await this.ensureTempDir();
+    const segmentPath = await createSlideSegment({
+      config: this.config,
+      media: this.media,
+      tempDir: this.tempDir!,
+      segmentIndex: this.videoSegments.length,
+      text,
+      duration,
+      audioPath,
+      slideOptions: options,
+    });
+    this.videoSegments.push(segmentPath);
+  }
+
+  private async recordCodeSegment(context: RuntimeFileContext, lineNumber: number, narration?: string): Promise<void> {
+    if (!this.codeExecutor) return;
+    if (!context.lines || context.lines.length === 0) {
+      throw new Error(`无法读取源码：${context.displayPath}（file(i) 录屏需要存在的源文件）`);
+    }
+    if (lineNumber < 1 || lineNumber > context.lines.length) {
+      throw new Error(`行号超出范围：${context.displayPath}:${lineNumber}（共 ${context.lines.length} 行）`);
+    }
+
+    const audioPath = await this.generateSpeechAudio(narration);
+    const minDuration = 1.2;
+    let desiredDuration = minDuration;
+    if (audioPath) {
+      const audioDuration = await this.media.getMediaDuration(audioPath);
+      if (audioDuration) {
+        desiredDuration = Math.max(desiredDuration, audioDuration + 0.2);
+      }
+    }
+
+    await this.ensureTempDir();
+
+    const captureStartedAt = Date.now();
+    await this.codeExecutor.startRecording();
+
+    const targetLine = lineNumber;
+    const startLine = context.typedLineCount + 1;
+    for (let i = startLine; i <= targetLine; i++) {
+      await this.codeExecutor.writeLine(context.lines[i - 1] ?? '', undefined, { appendNewLine: true });
+    }
+    context.typedLineCount = Math.max(context.typedLineCount, targetLine);
+
+    await this.codeExecutor.highlightLine(targetLine);
+
+    const elapsedMs = Date.now() - captureStartedAt;
+    const desiredMs = Math.ceil(desiredDuration * 1000);
+    const remainingMs = Math.max(0, desiredMs - elapsedMs);
+    if (remainingMs > 0) {
+      await this.delay(remainingMs);
+    }
+
+    const capturePath = await this.codeExecutor.stopRecording();
+    const segmentDuration = Math.max(desiredDuration, (Date.now() - captureStartedAt) / 1000);
+    const segmentPath = await transcodeCaptureToSegment({
+      config: this.config,
+      media: this.media,
+      tempDir: this.tempDir!,
+      segmentIndex: this.videoSegments.length,
+      capturePath,
+      audioPath,
+      duration: segmentDuration,
+    });
+    this.videoSegments.push(segmentPath);
+  }
+
+  private async flushRemainingFileLines(context: RuntimeFileContext): Promise<void> {
+    if (!this.codeExecutor) return;
+    if (!context.lines || context.lines.length === 0) return;
+    if (context.typedLineCount >= context.lines.length) return;
+
+    await this.ensureTempDir();
+    const captureStartedAt = Date.now();
+    await this.codeExecutor.startRecording();
+    const startLine = Math.max(1, context.typedLineCount + 1);
+    for (let i = startLine; i <= context.lines.length; i++) {
+      await this.codeExecutor.writeLine(context.lines[i - 1] ?? '', undefined, { appendNewLine: true });
+    }
+    context.typedLineCount = context.lines.length;
+
+    const minDuration = 0.8;
+    const elapsedMs = Date.now() - captureStartedAt;
+    const remainingMs = Math.max(0, Math.ceil(minDuration * 1000) - elapsedMs);
+    if (remainingMs > 0) {
+      await this.delay(remainingMs);
+    }
+
+    const capturePath = await this.codeExecutor.stopRecording();
+    const segmentDuration = Math.max(minDuration, (Date.now() - captureStartedAt) / 1000);
+    const segmentPath = await transcodeCaptureToSegment({
+      config: this.config,
+      media: this.media,
+      tempDir: this.tempDir!,
+      segmentIndex: this.videoSegments.length,
+      capturePath,
+      duration: segmentDuration,
+    });
+    this.videoSegments.push(segmentPath);
+  }
+
+  private delay(durationMs: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, durationMs));
+  }
+
+  private async ensureTempDir(): Promise<void> {
+    if (this.tempDir) return;
+    if (this.config.tempDir) {
+      await mkdir(this.config.tempDir, { recursive: true });
+      this.tempDir = this.config.tempDir;
+      return;
+    }
+    this.tempDir = await mkdtemp(join(tmpdir(), 'tutolang-'));
+  }
+
+  async addSubtitle(videoPath: string, subtitlePath: string): Promise<string> {
+    console.log(`[subtitle] ${subtitlePath} -> ${videoPath}`);
+    return `${videoPath}.with-subtitle`;
+  }
+}

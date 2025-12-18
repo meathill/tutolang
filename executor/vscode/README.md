@@ -33,6 +33,7 @@ node --experimental-strip-types --experimental-transform-types scripts/vscode-de
 - 已启动 Extension Host（确保 RPC 可访问）
 - 本机可执行 `ffmpeg`/`ffprobe`（或通过 `--ffmpegPath/--ffprobePath` 指定）
 - 已设置录屏模板 `TUTOLANG_RECORD_ARGS_JSON`（JSON 字符串数组，必须包含 `{output}` 占位符）
+  - 参数模板示例见：`docs/recording.md`
 
 运行示例：
 

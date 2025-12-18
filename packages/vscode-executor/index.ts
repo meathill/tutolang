@@ -1,5 +1,5 @@
 import type { CodeExecutor } from '@tutolang/types';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
@@ -95,6 +95,7 @@ export class VSCodeExecutor implements CodeExecutor {
     }
 
     const outputDir = this.options.recording?.outputDir ?? (await mkdtemp(join(tmpdir(), 'tutolang-record-')));
+    await mkdir(outputDir, { recursive: true });
     const outputPath = join(outputDir, `vscode-${Date.now()}-${randomUUID()}.mp4`);
     const ffmpegPath = this.options.recording?.ffmpegPath ?? 'ffmpeg';
     const args = template.map((arg) => (arg === '{output}' ? outputPath : arg));

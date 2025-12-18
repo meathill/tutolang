@@ -30,7 +30,8 @@ describe('Compiler + Runtime MVP', () => {
 
     const url = pathToFileURL(target).href;
     const mod = await import(url);
-    const run = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
+    const run = resolveRunner(mod);
+    assert.equal(typeof run, 'function', '编译产物应导出可执行的 run()');
     const runtime = new Runtime();
     await run(runtime);
     const actions = runtime.getActions();
@@ -55,3 +56,26 @@ describe('Compiler + Runtime MVP', () => {
     rmSync(target, { force: true });
   });
 });
+
+type Runner = (runtime: Runtime, options?: unknown) => unknown | Promise<unknown>;
+
+function resolveRunner(mod: unknown): Runner | undefined {
+  const record = isRecord(mod) ? mod : undefined;
+  if (!record) return undefined;
+
+  const direct = record.run;
+  if (typeof direct === 'function') return direct as Runner;
+
+  const def = record.default;
+  if (typeof def === 'function') return def as Runner;
+
+  if (!isRecord(def)) return undefined;
+  const defRun = def.run;
+  if (typeof defRun === 'function') return defRun as Runner;
+
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}

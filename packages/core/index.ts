@@ -5,10 +5,6 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { basename, extname, join, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-/**
- * Tutolang Core
- * Main entry point that orchestrates compiler and runtime
- */
 export default class TutolangCore {
   private compiler: Compiler;
   private options: TutolangOptions;
@@ -26,7 +22,7 @@ export default class TutolangCore {
     const compiled = await this.compiler.compile(code);
     const url = this.bufferToModule(compiled);
     const mod = await import(url);
-    const runner = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
+    const runner = resolveRunner(mod);
     const runtime = new Runtime({ renderVideo: true, ...options?.runtimeConfig });
     if (typeof runner === 'function') {
       await runner(runtime, { output: options?.output });
@@ -54,7 +50,7 @@ export default class TutolangCore {
     await writeFile(target, compiled, 'utf-8');
     const url = pathToFileURL(target).href;
     const mod = await import(url);
-    const runner = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
+    const runner = resolveRunner(mod);
     const runtime = new Runtime({
       renderVideo: true,
       projectDir: dirname(inputPath),
@@ -95,4 +91,28 @@ export default class TutolangCore {
     const encoded = Buffer.from(code, 'utf-8').toString('base64');
     return `data:text/javascript;base64,${encoded}`;
   }
+}
+
+type RunnerOptions = { output?: string };
+type Runner = (runtime: Runtime, options?: RunnerOptions) => unknown | Promise<unknown>;
+
+function resolveRunner(mod: unknown): Runner | undefined {
+  const record = isRecord(mod) ? mod : undefined;
+  if (!record) return undefined;
+
+  const direct = record.run;
+  if (typeof direct === 'function') return direct as Runner;
+
+  const def = record.default;
+  if (typeof def === 'function') return def as Runner;
+
+  if (!isRecord(def)) return undefined;
+  const defRun = def.run;
+  if (typeof defRun === 'function') return defRun as Runner;
+
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
 }
