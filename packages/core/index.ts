@@ -1,4 +1,4 @@
-import type { TutolangOptions, RuntimeConfig } from '@tutolang/types';
+import type { TutolangOptions, RuntimeConfig, CodeExecutor, BrowserExecutor } from '@tutolang/types';
 import { Compiler } from '@tutolang/compiler';
 import { Runtime } from '@tutolang/runtime';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -41,7 +41,12 @@ export default class TutolangCore {
     await writeFile(target, compiled, 'utf-8');
   }
 
-  async executeFile(inputPath: string, outputPath: string, outputVideo?: string): Promise<void> {
+  async executeFile(
+    inputPath: string,
+    outputPath: string,
+    outputVideo?: string,
+    options?: { runtimeConfig?: RuntimeConfig; codeExecutor?: CodeExecutor; browserExecutor?: BrowserExecutor },
+  ): Promise<void> {
     const code = await readFile(inputPath, 'utf-8');
     const compiled = await this.compiler.compile(code);
     const target = this.resolveOutputPath(inputPath, outputPath);
@@ -50,9 +55,32 @@ export default class TutolangCore {
     const url = pathToFileURL(target).href;
     const mod = await import(url);
     const runner = (mod as any).run ?? (mod as any).default?.run ?? (mod as any).default;
-    const runtime = new Runtime({ renderVideo: true, projectDir: dirname(inputPath) });
-    if (typeof runner === 'function') {
+    const runtime = new Runtime({
+      renderVideo: true,
+      projectDir: dirname(inputPath),
+      ...options?.runtimeConfig,
+    });
+
+    if (options?.codeExecutor) runtime.setCodeExecutor(options.codeExecutor);
+    if (options?.browserExecutor) runtime.setBrowserExecutor(options.browserExecutor);
+
+    if (typeof runner !== 'function') return;
+
+    const executors: Array<CodeExecutor | BrowserExecutor> = [];
+    if (options?.codeExecutor) executors.push(options.codeExecutor);
+    if (options?.browserExecutor) executors.push(options.browserExecutor);
+
+    const initialized: Array<CodeExecutor | BrowserExecutor> = [];
+    try {
+      for (const executor of executors) {
+        await executor.initialize();
+        initialized.push(executor);
+      }
       await runner(runtime, { output: outputVideo });
+    } finally {
+      for (const executor of initialized.reverse()) {
+        await executor.cleanup();
+      }
     }
   }
 

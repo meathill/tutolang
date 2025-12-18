@@ -1,8 +1,9 @@
-import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { basename } from 'node:path';
+import { loadCliConfig } from './config-loader.ts';
+import { createCodeExecutor } from './executor-factory.ts';
 type TutolangCoreType = typeof import('../core/index');
 type RunMock = typeof import('../core/mock').runMockFromFile;
 
@@ -62,7 +63,6 @@ const argv = yargs(hideBin(process.argv))
       alias: 'l',
       describe: 'Video language',
       type: 'string',
-      default: 'en',
     },
     mock: {
       alias: 'm',
@@ -84,18 +84,20 @@ async function main() {
   const { input, output, compile, config, verbose, language, mock, mockFormat } = argv;
 
   const Core = await loadCore();
-  // TODO: Load config file if provided
+  const loaded = await loadCliConfig(config);
+  const effectiveLanguage = language ?? loaded.config.language ?? 'en';
   const options = {
-    language,
-    // ...load from config file
+    language: effectiveLanguage,
   };
 
   const tutolang = new Core(options);
+  const runtimeConfig = loaded.config.runtime;
 
   if (verbose) {
     console.log('Starting Tutolang...');
     console.log('Input:', input);
     console.log('Output:', output);
+    if (loaded.path) console.log('Config:', loaded.path);
   }
 
   try {
@@ -115,7 +117,6 @@ async function main() {
     }
     if (compile) {
       // Only compile to TypeScript
-      // TODO: Implement compile-only mode
       const inputPath = resolve(process.cwd(), input);
       const outputPath = resolve(process.cwd(), output);
       await tutolang.compileFile(inputPath, outputPath);
@@ -125,7 +126,8 @@ async function main() {
       const inputPath = resolve(process.cwd(), input);
       const outputPath = resolve(process.cwd(), output);
       const outputVideo = resolve(outputPath, `${basename(input, '.tutolang')}.mp4`);
-      await tutolang.executeFile(inputPath, outputPath, outputVideo);
+      const codeExecutor = await createCodeExecutor(loaded.config.executors?.code, { outputDir: outputPath });
+      await tutolang.executeFile(inputPath, outputPath, outputVideo, { runtimeConfig, codeExecutor });
       console.log('Video generation complete! 输出文件：', outputVideo);
     }
   } catch (error) {

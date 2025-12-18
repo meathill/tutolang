@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "dependencies": {
     "@tutolang/core": "workspace:*",
+    "@tutolang/vscode-executor": "workspace:*",
     "yargs": "^17.6.2"
   },
   "type": "module"

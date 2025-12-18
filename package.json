@@ -11,7 +11,8 @@
     "test": "node --experimental-strip-types --experimental-transform-types --test tests/core/index.test.ts tests/core/compiler.spec.ts tests/mock-e2e.spec.ts packages/parser/__tests__/parser.spec.ts packages/runtime/__tests__/tts.spec.ts packages/runtime/__tests__/runtime.spec.ts",
     "lint": "biome format --write",
     "publish": "",
-    "mock-sample": "node --experimental-strip-types --experimental-transform-types scripts/mock-runner.ts"
+    "mock-sample": "node --experimental-strip-types --experimental-transform-types scripts/mock-runner.ts",
+    "init-config": "node --experimental-strip-types --experimental-transform-types scripts/init-config.ts"
   },
   "repository": {
     "type": "git",

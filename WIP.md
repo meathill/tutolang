@@ -103,9 +103,10 @@
     - [x] `Runtime.fileEnd`：可选补齐剩余未输入行（无解说，静音短片段即可），保证最终文件完整。
 - [x] `Runtime.merge` 的健壮性检查：
   - [x] 若发现 segment 编码参数不一致，明确报错并提示“录屏模板需统一参数/或启用转码合并”。
-- [ ] 配置与接线（MVP 先不做 CLI 参数也行）：
+- [x] 配置与接线（MVP 先不做 CLI 参数也行）：
   - [x] 新增脚本：编译并运行 `sample/hello-world.tutolang`，运行前注入 `runtime.setCodeExecutor(new VSCodeExecutor(...))`；
-  - [ ] 后续再把它升级为 CLI 配置项（`tutolang.config.js` / flags）。
+  - [x] 升级为 CLI 配置项（支持 `--config`、默认搜索 `tutolang.config.*` 与 `~/tutolang/config.*`）。
+  - [x] 增加配置模板与一键生成脚本：`docs/templates/*` + `pnpm init-config`。
 - [x] 测试（不依赖真实 VSCode/ffmpeg）：
   - [x] fake `CodeExecutor`：断言 `openFile/typed lines/highlight/startRecording/stopRecording` 调用序列正确；
   - [x] fake ffmpeg：捕获 “raw->segment 转码 + 音频注入” 的参数（类似 `packages/runtime/__tests__/runtime.spec.ts` 的做法）。
