@@ -77,12 +77,28 @@ export class VSCodeExecutor implements CodeExecutor {
     await this.rpc('typeText', { text: char, delayMs: options?.delayMs ?? this.options.typingDelayMs });
   }
 
+  async deleteLeft(count: number, options?: { delayMs?: number }): Promise<void> {
+    await this.rpc('deleteLeft', { count, delayMs: options?.delayMs ?? this.options.typingDelayMs });
+  }
+
+  async deleteRight(count: number, options?: { delayMs?: number }): Promise<void> {
+    await this.rpc('deleteRight', { count, delayMs: options?.delayMs ?? this.options.typingDelayMs });
+  }
+
+  async deleteLine(count = 1, options?: { delayMs?: number }): Promise<void> {
+    await this.rpc('deleteLine', { count, delayMs: options?.delayMs ?? this.options.typingDelayMs });
+  }
+
   async highlightLine(lineNumber: number, options?: { durationMs?: number }): Promise<void> {
     await this.rpc('highlightLine', { line: Math.max(0, lineNumber - 1), durationMs: options?.durationMs });
   }
 
   async moveCursor(line: number, column: number): Promise<void> {
     await this.rpc('setCursor', { line: Math.max(0, line - 1), column: Math.max(0, column - 1) });
+  }
+
+  async saveFile(): Promise<void> {
+    await this.rpc('saveFile');
   }
 
   async startRecording(): Promise<void> {

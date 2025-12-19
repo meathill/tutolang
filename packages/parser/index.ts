@@ -18,7 +18,7 @@ const PATH_RE = /['"]([^'"]+)['"]/;
  *   - file(i) 'path':
  *   - file(e) 'path':
  *   - browser 'path':
- *   - commit HASH:
+ *   - commit HASH
  *   - video 'path':
  * 块体：缩进大于 0 的行；文件/浏览器块内的 marker 使用 [xxx] 前缀。
  */
@@ -146,7 +146,8 @@ export class Parser {
   private parseCommit(ctx: ParseContext): CommitNode {
     const header = this.lines[this.index].trim();
     this.index++;
-    const [, hash] = header.split(/\s+/, 2);
+    const [, rawHash] = header.split(/\s+/, 2);
+    const hash = rawHash?.replace(/:$/, '');
     if (!hash) {
       throw this.error('commit 语句缺少 commit hash', ctx);
     }

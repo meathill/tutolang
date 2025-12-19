@@ -38,6 +38,18 @@ export class VSCodeExecutor implements CodeExecutor {
     // For realistic typing effect
   }
 
+  async deleteLeft(_count: number, _options?: { delayMs?: number }): Promise<void> {
+    // TODO: Delete characters on the left
+  }
+
+  async deleteRight(_count: number, _options?: { delayMs?: number }): Promise<void> {
+    // TODO: Delete characters on the right
+  }
+
+  async deleteLine(_count?: number, _options?: { delayMs?: number }): Promise<void> {
+    // TODO: Delete current line(s)
+  }
+
   async highlightLine(_lineNumber: number, _options?: { durationMs?: number }): Promise<void> {
     // TODO: Highlight specific line
     // Use VSCode selection API
@@ -45,6 +57,10 @@ export class VSCodeExecutor implements CodeExecutor {
 
   async moveCursor(line: number, column: number): Promise<void> {
     // TODO: Move cursor to position
+  }
+
+  async saveFile(): Promise<void> {
+    // TODO: Save current active file
   }
 
   async startRecording(): Promise<void> {

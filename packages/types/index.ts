@@ -91,8 +91,12 @@ export interface CodeExecutor extends Executor {
     options?: { delayMs?: number; appendNewLine?: boolean },
   ): Promise<void>;
   writeChar(char: string, options?: { delayMs?: number }): Promise<void>;
+  deleteLeft(count: number, options?: { delayMs?: number }): Promise<void>;
+  deleteRight(count: number, options?: { delayMs?: number }): Promise<void>;
+  deleteLine(count?: number, options?: { delayMs?: number }): Promise<void>;
   highlightLine(lineNumber: number, options?: { durationMs?: number }): Promise<void>;
   moveCursor(line: number, column: number): Promise<void>;
+  saveFile(): Promise<void>;
   startRecording(): Promise<void>;
   stopRecording(): Promise<string>; // returns video path
 }

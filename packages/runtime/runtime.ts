@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { TTS } from './tts.ts';
 import { resolveScriptPath, renderFilePreview, tryReadFileLines, type FileContext } from './file-preview.ts';
+import { GitDiffApplier } from './git-diff-applier.ts';
+import { GitWorktreeManager } from './git-worktree.ts';
 import { MediaTools } from './media-tools.ts';
 import { createImageSlideSegment, createSlideSegment, transcodeCaptureToSegment, type SlideOptions } from './video-segments.ts';
 
@@ -20,6 +22,9 @@ export class Runtime {
   private tts: TTS;
   private actions: string[] = [];
   private tempDir?: string;
+  private gitWorktree?: GitWorktreeManager;
+  private gitDiffApplier?: GitDiffApplier;
+  private currentCommitHash?: string;
   private fileContexts = new Map<string, RuntimeFileContext>();
   private media: MediaTools;
 
@@ -39,6 +44,16 @@ export class Runtime {
 
   getActions(): string[] {
     return [...this.actions];
+  }
+
+  async cleanup(): Promise<void> {
+    const manager = this.gitWorktree;
+    if (!manager) return;
+    this.gitWorktree = undefined;
+    this.gitDiffApplier = undefined;
+    this.currentCommitHash = undefined;
+    this.config.projectDir = manager.getOriginalProjectDir();
+    await manager.cleanup();
   }
 
   async say(content: string, options?: { image?: string; video?: string; browser?: string }): Promise<void> {
@@ -245,6 +260,24 @@ export class Runtime {
 
   async commit(commitHash: string): Promise<void> {
     this.log('commit', commitHash);
+    if (!this.gitWorktree) {
+      this.gitWorktree = await GitWorktreeManager.create({ projectDir: this.config.projectDir });
+      this.config.projectDir = await this.gitWorktree.checkout(commitHash);
+      this.currentCommitHash = commitHash;
+      return;
+    }
+
+    if (this.codeExecutor && this.currentCommitHash) {
+      if (!this.gitDiffApplier) {
+        this.gitDiffApplier = await GitDiffApplier.create({ projectDir: this.config.projectDir, executor: this.codeExecutor });
+      }
+      await this.gitDiffApplier.apply(this.currentCommitHash, commitHash);
+      this.currentCommitHash = commitHash;
+      return;
+    }
+
+    this.config.projectDir = await this.gitWorktree.checkout(commitHash);
+    this.currentCommitHash = commitHash;
   }
 
   async video(path: string): Promise<void> {

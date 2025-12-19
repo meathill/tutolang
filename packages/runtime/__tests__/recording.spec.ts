@@ -38,12 +38,28 @@ class FakeCodeExecutor implements CodeExecutor {
     this.calls.push({ method: 'writeChar', args: [char, options] });
   }
 
+  async deleteLeft(count: number, options?: { delayMs?: number }): Promise<void> {
+    this.calls.push({ method: 'deleteLeft', args: [count, options] });
+  }
+
+  async deleteRight(count: number, options?: { delayMs?: number }): Promise<void> {
+    this.calls.push({ method: 'deleteRight', args: [count, options] });
+  }
+
+  async deleteLine(count = 1, options?: { delayMs?: number }): Promise<void> {
+    this.calls.push({ method: 'deleteLine', args: [count, options] });
+  }
+
   async highlightLine(lineNumber: number, options?: { durationMs?: number }): Promise<void> {
     this.calls.push({ method: 'highlightLine', args: [lineNumber, options] });
   }
 
   async moveCursor(line: number, column: number): Promise<void> {
     this.calls.push({ method: 'moveCursor', args: [line, column] });
+  }
+
+  async saveFile(): Promise<void> {
+    this.calls.push({ method: 'saveFile', args: [] });
   }
 
   async startRecording(): Promise<void> {
@@ -215,4 +231,3 @@ process.exit(0);
   const hasAnullsrc = args.some((value) => String(value).includes('anullsrc='));
   assert.ok(hasAnullsrc, '无音频时应使用 anullsrc 注入静音音轨');
 });
-

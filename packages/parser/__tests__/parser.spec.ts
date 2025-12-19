@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { NodeType, type BrowserNode, type FileNode, type SayNode } from '@tutolang/types';
+import { NodeType, type BrowserNode, type CommitNode, type FileNode, type SayNode } from '@tutolang/types';
 import { Parser } from '../index.ts';
 
 const SAMPLE_PATH = resolve(process.cwd(), 'sample/hello-world.tutolang');
@@ -98,6 +98,14 @@ describe('Parser (MVP subset)', () => {
   it('commit 缺少 hash 时抛错', () => {
     const p = new Parser('commit:');
     assert.throws(() => p.parse(), /commit 语句缺少 commit hash/);
+  });
+
+  it('commit hash 末尾带冒号时应剥离', () => {
+    const p = new Parser('commit abc123:');
+    const res = p.parse();
+    assert.strictEqual(res.length, 1);
+    const commit = res[0] as CommitNode;
+    assert.strictEqual(commit.commitHash, 'abc123');
   });
 });
 

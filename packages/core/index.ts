@@ -24,8 +24,11 @@ export default class TutolangCore {
     const mod = await import(url);
     const runner = resolveRunner(mod);
     const runtime = new Runtime({ renderVideo: true, ...options?.runtimeConfig });
-    if (typeof runner === 'function') {
+    if (typeof runner !== 'function') return;
+    try {
       await runner(runtime, { output: options?.output });
+    } finally {
+      await runtime.cleanup();
     }
   }
 
@@ -77,6 +80,7 @@ export default class TutolangCore {
       for (const executor of initialized.reverse()) {
         await executor.cleanup();
       }
+      await runtime.cleanup();
     }
   }
 

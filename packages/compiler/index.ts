@@ -39,11 +39,19 @@ export class CodeGenerator {
       .map((node) => this.generateNode(node))
       .filter(Boolean)
       .join('\n');
+    const indentedBody = body
+      .split('\n')
+      .map((line) => (line.trim() ? `  ${line}` : line))
+      .join('\n');
     return `${this.generateImports()}
 
 export async function run(runtime = new Runtime(), options: { output?: string } = {}) {
-${body}
-  await runtime.merge(options.output ?? 'tutolang-output.mp4');
+  try {
+${indentedBody}
+    await runtime.merge(options.output ?? 'tutolang-output.mp4');
+  } finally {
+    await runtime.cleanup();
+  }
 }
 
 if (import.meta.main) {

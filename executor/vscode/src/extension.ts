@@ -12,6 +12,16 @@ type TypeTextParams = {
   delayMs?: number;
 };
 
+type DeleteCharsParams = {
+  count: number;
+  delayMs?: number;
+};
+
+type DeleteLineParams = {
+  count?: number;
+  delayMs?: number;
+};
+
 type SetCursorParams = {
   line: number;
   column: number;
@@ -103,6 +113,61 @@ export function activate(context: vscode.ExtensionContext) {
     return { ok: true };
   }
 
+  async function deleteLeftRpc(params: unknown): Promise<unknown> {
+    const parsed = params as DeleteCharsParams;
+    const count = Number.isFinite(parsed?.count) ? Math.max(0, Math.floor(parsed.count)) : 0;
+    const delayMs = Math.max(0, parsed?.delayMs ?? 15);
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) throw new Error('当前没有可删除内容的编辑器');
+
+    for (let i = 0; i < count; i++) {
+      await vscode.commands.executeCommand('deleteLeft');
+      if (delayMs > 0) await sleep(delayMs);
+    }
+
+    return { ok: true };
+  }
+
+  async function deleteRightRpc(params: unknown): Promise<unknown> {
+    const parsed = params as DeleteCharsParams;
+    const count = Number.isFinite(parsed?.count) ? Math.max(0, Math.floor(parsed.count)) : 0;
+    const delayMs = Math.max(0, parsed?.delayMs ?? 15);
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) throw new Error('当前没有可删除内容的编辑器');
+
+    for (let i = 0; i < count; i++) {
+      await vscode.commands.executeCommand('deleteRight');
+      if (delayMs > 0) await sleep(delayMs);
+    }
+
+    return { ok: true };
+  }
+
+  async function deleteLineRpc(params: unknown): Promise<unknown> {
+    const parsed = params as DeleteLineParams;
+    const count = Number.isFinite(parsed?.count) ? Math.max(0, Math.floor(parsed.count)) : 1;
+    const delayMs = Math.max(0, parsed?.delayMs ?? 15);
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) throw new Error('当前没有可删除行的编辑器');
+
+    for (let i = 0; i < count; i++) {
+      await vscode.commands.executeCommand('editor.action.deleteLines');
+      if (delayMs > 0) await sleep(delayMs);
+    }
+
+    return { ok: true };
+  }
+
+  async function saveFileRpc(): Promise<unknown> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) throw new Error('当前没有可保存的编辑器');
+    await editor.document.save();
+    return { ok: true };
+  }
+
   async function setCursorRpc(params: unknown): Promise<unknown> {
     const parsed = params as SetCursorParams;
     const editor = vscode.window.activeTextEditor;
@@ -152,8 +217,12 @@ export function activate(context: vscode.ExtensionContext) {
     getWorkspaceRoot: async () => ({ root: getFirstWorkspaceRoot() }),
     openFile: openFileRpc,
     typeText: typeTextRpc,
+    deleteLeft: deleteLeftRpc,
+    deleteRight: deleteRightRpc,
+    deleteLine: deleteLineRpc,
     setCursor: setCursorRpc,
     highlightLine: highlightLineRpc,
+    saveFile: saveFileRpc,
   };
 
   const server = startRpcServer({

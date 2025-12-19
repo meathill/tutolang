@@ -128,20 +128,42 @@
 ## 下一步（2025-12-18 浏览器预览 MVP）
 - 目标：让 `browser` 区块能产出「真实页面画面」，先用截图生成视频片段（MVP），后续再补浏览器录屏。
 - TODO：
-  - [ ] Runtime：支持 “图片/截图” 片段（基于 ffmpeg 将图片转成标准 segment），并让 `browser()/click()/highlight()` 在有 `browserExecutor` 时用截图代替文字 slide。
-  - [ ] CLI：支持 `executors.browser` 配置与工厂创建（类似 `executors.code`），并注入 Core/Runtime。
-  - [ ] executor/browser：实现 PuppeteerExecutor 的基础能力（launch/newPage/navigate/click/type/highlight/screenshot）。
-  - [ ] 测试：补齐 Runtime/CLI 的单测（不依赖真实浏览器/ffmpeg）。
-  - [ ] 文档：补配置与使用说明（安装依赖、常见坑、示例脚本）。
+  - [x] Runtime：支持 “图片/截图” 片段（基于 ffmpeg 将图片转成标准 segment），并让 `browser()/click()/highlight()` 在有 `browserExecutor` 时用截图代替文字 slide。
+  - [x] CLI：支持 `executors.browser` 配置与工厂创建（类似 `executors.code`），并注入 Core/Runtime。
+  - [x] executor/browser：实现 PuppeteerExecutor 的基础能力（launch/newPage/navigate/click/type/highlight/screenshot）。
+  - [x] 测试：补齐 Runtime/CLI 的单测（不依赖真实浏览器/ffmpeg）。
+  - [x] 文档：补配置与使用说明（安装依赖、常见坑、示例脚本）。
 
 ## 下一步（2025-12-18 浏览器内部录制）
 - 目标：浏览器执行器支持“浏览器内部录制”（CDP screencast → ffmpeg 编码），让 `browser` 区块可以生成真实动态画面（不依赖系统录屏）。
 - TODO：
-  - [ ] executor/browser：实现 `startRecording/stopRecording`（CDP `Page.startScreencast` 拉帧，落盘为序列帧后用 ffmpeg 编码为 mp4）。
-  - [ ] Runtime：在 `say(browser)`/`[click]`/`[highlight]` 场景优先走录制片段（失败时降级截图），并将解说音轨烘焙进 segment。
-  - [ ] Compiler：浏览器块内的 marker 生成合并后的调用（例如 `highlight(selector, narration)`，`say(..., { browser: 'true' })`），避免“动作/解说”拆成两个片段。
-  - [ ] 测试：覆盖“录制路径/降级路径”的参数拼装与时长逻辑（不依赖真实 puppeteer/ffmpeg）。
-  - [ ] 文档：补配置项（录制 fps、输出目录、ffmpeg 路径）与使用步骤。
+  - [x] executor/browser：实现 `startRecording/stopRecording`（CDP `Page.startScreencast` 拉帧，落盘为序列帧后用 ffmpeg 编码为 mp4）。
+  - [x] Runtime：在 `say(browser)`/`[click]`/`[highlight]` 场景优先走录制片段（失败时降级截图），并将解说音轨烘焙进 segment。
+  - [x] Compiler：浏览器块内的 marker 生成合并后的调用（例如 `highlight(selector, narration)`，`say(..., { browser: 'true' })`），避免“动作/解说”拆成两个片段。
+  - [x] 测试：覆盖“录制路径/降级路径”的参数拼装与时长逻辑（不依赖真实 puppeteer/ffmpeg）。
+  - [x] 文档：补配置项（录制 fps、输出目录、ffmpeg 路径）与使用步骤。
+
+## 本次实现（2025-12-19 commit 指令 Git worktree）
+- 目标：让 `commit HASH` 能切换代码状态且不污染宿主仓库（默认使用 git worktree）。
+- TODO：
+  - [x] `GitHelper`：支持 `worktree add/remove/prune`、获取 repoRoot/branch/commit。
+  - [x] `Runtime.commit`：使用 worktree 切换 `projectDir`，后续 `file/browser` 读取即对应 commit。
+  - [x] 清理：`Runtime.cleanup` 支持回收 worktree；`Compiler.run`/`Core.execute*` 保障 finally 调用 cleanup。
+  - [x] 测试：覆盖 “切换 commit → 读取不同版本文件 → 强制移除旧 worktree → cleanup 恢复原 projectDir”。
+
+## 本次实现（2025-12-19 基于 git diff 的字符级编辑）
+- 目标：基于 commit diff 生成更细粒度的编辑操作——只删除/输入变化的字符范围，而不是整行重写。
+- TODO：
+  - [x] `CodeExecutor`：新增 `deleteLeft/deleteRight/deleteLine/saveFile`（用于精确删除与落盘）。
+  - [x] VSCode 扩展 RPC：实现 `deleteLeft/deleteRight/deleteLine/saveFile`。
+  - [x] Diff：实现字符级 diff（Myers）+ `applyLineDiff/applyFileDiff`，支持同一行多段变更。
+  - [x] GitDiffApplier：`Runtime.commit` 在配置 `codeExecutor` 时，自动 `git diff` 并把改动应用到 worktree 文件（走字符级编辑，而非 writeLine）。
+  - [x] 测试：覆盖 “单行一段变更” 与 “单行多段变更”，并做 git 集成回归。
+
+## 下一步（建议：把 diff 拆到 marker 驱动）
+- 当前 `commit` 的 diff 应用属于“自动全量应用”；更贴近脚本语义的做法是：
+  - `commit` 阶段只准备 diff/变更计划；
+  - `file(i)` + `[lN]` 阶段按讲解顺序逐步应用（未讲解部分在 `[end]` 一次性应用），实现“边讲边改”的节奏控制。
 
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
