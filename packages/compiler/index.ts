@@ -113,22 +113,34 @@ if (import.meta.main) {
     switch (marker.markerType) {
       case 'start':
       case 'end':
-        return content === 'undefined' ? '  // marker without content' : `  await runtime.say(${content});`;
+        if (content === 'undefined') return '  // marker without content';
+        if (isBrowser) return `  await runtime.say(${content}, { browser: 'true' });`;
+        return `  await runtime.say(${content});`;
       case 'line':
         if (marker.lineNumber !== undefined) {
           return `  await runtime.inputLine(${this.quote(path)}, ${marker.lineNumber}, ${content});`;
         }
-        return content === 'undefined' ? '  // marker line without content' : `  await runtime.say(${content});`;
+        if (content === 'undefined') return '  // marker line without content';
+        if (isBrowser) return `  await runtime.say(${content}, { browser: 'true' });`;
+        return `  await runtime.say(${content});`;
       case 'edit':
         return `  await runtime.editLine(${this.quote(path)}, ${marker.lineNumber ?? 0}, ${content});`;
       case 'highlight': {
         const selector = this.readStringParam(marker.params, 'selector') ?? '';
+        if (isBrowser) {
+          if (content === 'undefined') return `  await runtime.highlight(${this.quote(selector)});`;
+          return `  await runtime.highlight(${this.quote(selector)}, ${content});`;
+        }
         const highlight = `  await runtime.highlight(${this.quote(selector)});`;
         if (content === 'undefined') return highlight;
         return `${highlight}\n  await runtime.say(${content});`;
       }
       case 'click': {
         const selector = this.readStringParam(marker.params, 'selector') ?? '';
+        if (isBrowser) {
+          if (content === 'undefined') return `  await runtime.click(${this.quote(selector)});`;
+          return `  await runtime.click(${this.quote(selector)}, ${content});`;
+        }
         const click = `  await runtime.click(${this.quote(selector)});`;
         if (content === 'undefined') return click;
         return `${click}\n  await runtime.say(${content});`;

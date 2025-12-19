@@ -24,6 +24,13 @@ export type PuppeteerBrowserExecutorConfig = {
   headless?: boolean;
   executablePath?: string;
   screenshotDir?: string;
+  recording?: {
+    ffmpegPath?: string;
+    outputDir?: string;
+    fps?: number;
+    format?: 'jpeg' | 'png';
+    quality?: number;
+  };
   viewport?: {
     width?: number;
     height?: number;
@@ -212,11 +219,24 @@ function normalizeBrowserExecutor(raw: unknown): BrowserExecutorConfig | undefin
         }
       : undefined;
 
+  const recording = isPlainObject(record.recording) ? (record.recording as Record<string, unknown>) : undefined;
+  const recordingConfig =
+    recording
+      ? {
+          ffmpegPath: typeof recording.ffmpegPath === 'string' ? recording.ffmpegPath : undefined,
+          outputDir: typeof recording.outputDir === 'string' ? resolve(process.cwd(), recording.outputDir) : undefined,
+          fps: typeof recording.fps === 'number' ? recording.fps : undefined,
+          format: recording.format === 'jpeg' || recording.format === 'png' ? recording.format : undefined,
+          quality: typeof recording.quality === 'number' ? recording.quality : undefined,
+        }
+      : undefined;
+
   return {
     type: 'puppeteer',
     headless: typeof record.headless === 'boolean' ? record.headless : undefined,
     executablePath: typeof record.executablePath === 'string' ? record.executablePath : undefined,
     screenshotDir: typeof record.screenshotDir === 'string' ? resolve(process.cwd(), record.screenshotDir) : undefined,
+    recording: recordingConfig,
     viewport: viewportConfig,
   };
 }

@@ -122,7 +122,7 @@ export interface RuntimeConfig {
   projectDir?: string;
   cacheDir?: string;
   tts?: {
-    engine?: 'gemini';
+    engine?: 'gemini' | 'none';
     model?: string;
     voiceName?: string;
     languageCode?: string;

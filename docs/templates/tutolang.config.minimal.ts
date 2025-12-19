@@ -18,6 +18,9 @@ export default {
     // cacheDir: '.tutolang-cache',
 
     tts: {
+      // 如果你暂时不想调用 TTS（例如额度用完），可设置：
+      // engine: 'none',
+
       // 未配置 API Key 时，仍可生成视频，但解说会静音（会注入静音音轨以保证片段可合并）
       // apiKey: process.env.GOOGLE_API_KEY,
 
@@ -38,4 +41,3 @@ export default {
     // output: { fps: 30 },
   },
 } as const;
-

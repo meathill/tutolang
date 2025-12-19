@@ -93,5 +93,14 @@ function buildBrowserOptions(
     executablePath: config.executablePath,
     viewport: config.viewport,
     screenshotDir: config.screenshotDir ?? (outputDir ? resolve(outputDir, 'browser-captures') : undefined),
+    recording: config.recording
+      ? {
+          ffmpegPath: config.recording.ffmpegPath,
+          outputDir: config.recording.outputDir ?? (outputDir ? resolve(outputDir, 'browser-recordings') : undefined),
+          fps: config.recording.fps,
+          format: config.recording.format,
+          quality: config.recording.quality,
+        }
+      : undefined,
   };
 }

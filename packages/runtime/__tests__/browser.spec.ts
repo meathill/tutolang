@@ -54,7 +54,7 @@ class FakeBrowserExecutor implements BrowserExecutor {
   }
 }
 
-test('Runtime.browser 在 renderVideo 且配置 browserExecutor 时应以截图生成视频片段', async () => {
+test('Runtime.browser 在 renderVideo 且配置 browserExecutor 时应仅导航，不直接生成片段', async () => {
   const workDir = await mkdtemp(join(tmpdir(), 'tutolang-runtime-browser-test-'));
   const capturePath = join(workDir, 'ffmpeg-args.json');
   const ffmpegPath = join(workDir, 'fake-ffmpeg.mjs');
@@ -104,22 +104,10 @@ process.exit(0);
   assert.ok(navigateCall, '应调用 navigate');
   assert.ok(String(navigateCall.args[0]).startsWith('file://'), '本地页面应转换为 file:// URL');
 
-  const raw = await readFile(capturePath, 'utf-8');
-  const captured = JSON.parse(raw) as string[][];
-  assert.ok(captured.length >= 1, '应捕获到 ffmpeg 调用');
-
-  const args = captured[0] ?? [];
-  const hasLoopImage = args.some((value, index) => value === '-loop' && args[index + 1] === '1') && args.includes(screenshotPath);
-  assert.ok(hasLoopImage, '应以 -loop 1 方式加载截图作为视频输入');
-
-  const hasAnullsrc = args.some((value) => String(value).includes('anullsrc='));
-  assert.ok(hasAnullsrc, '无音频时应注入静音音轨');
-
-  const hasDuration = args.some((value, index) => value === '-t' && args[index + 1] === '1.2');
-  assert.ok(hasDuration, '应按 Runtime.browser 的默认时长截断输出');
+  await assert.rejects(() => readFile(capturePath, 'utf-8'), /ENOENT/, 'browser() 在有 executor 时不应直接生成视频片段');
 });
 
-test('Runtime.highlight/click 在 renderVideo 且配置 browserExecutor 时应使用截图而非文字 slide', async () => {
+test('Runtime.say(browser=true) 在 renderVideo 且配置 browserExecutor 时应录制并转码为片段（失败时再降级截图）', async () => {
   const workDir = await mkdtemp(join(tmpdir(), 'tutolang-runtime-browser-test-'));
   const capturePath = join(workDir, 'ffmpeg-args.json');
   const ffmpegPath = join(workDir, 'fake-ffmpeg.mjs');
@@ -149,6 +137,64 @@ process.exit(0);
 
   const executor = new FakeBrowserExecutor(screenshotPath);
   runtime.setBrowserExecutor(executor);
+  (runtime as unknown as { delay: () => Promise<void> }).delay = async () => undefined;
+  (runtime as unknown as { tts: { generate: () => Promise<string | undefined> } }).tts.generate = async () => undefined;
+
+  const originalLog = console.log;
+  console.log = () => undefined;
+  const previousCapture = process.env.CAPTURE_PATH;
+  process.env.CAPTURE_PATH = capturePath;
+  try {
+    await runtime.say('hello', { browser: 'true' });
+  } finally {
+    console.log = originalLog;
+    if (previousCapture === undefined) delete process.env.CAPTURE_PATH;
+    else process.env.CAPTURE_PATH = previousCapture;
+  }
+
+  const methods = executor.calls.map((call) => call.method);
+  assert.ok(methods.includes('startRecording') && methods.includes('stopRecording'), '应调用 start/stopRecording');
+
+  const raw = await readFile(capturePath, 'utf-8');
+  const captured = JSON.parse(raw) as string[][];
+  assert.equal(captured.length, 1, '应生成一个转码片段');
+
+  const args = captured[0] ?? [];
+  const hasCaptureInput = args.some((value, index) => value === '-i' && args[index + 1] === '/tmp/fake-browser-recording.mp4');
+  assert.ok(hasCaptureInput, '应以 stopRecording 返回的 capturePath 作为视频输入');
+});
+
+test('Runtime.highlight/click 在 renderVideo 且配置 browserExecutor 时应录制并转码为片段', async () => {
+  const workDir = await mkdtemp(join(tmpdir(), 'tutolang-runtime-browser-test-'));
+  const capturePath = join(workDir, 'ffmpeg-args.json');
+  const ffmpegPath = join(workDir, 'fake-ffmpeg.mjs');
+  const screenshotPath = join(workDir, 'shot.png');
+
+  await writeFile(
+    ffmpegPath,
+    `#!/usr/bin/env node
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+const capture = process.env.CAPTURE_PATH;
+if (capture) {
+  const existing = existsSync(capture) ? JSON.parse(readFileSync(capture, 'utf-8')) : [];
+  existing.push(process.argv.slice(2));
+  writeFileSync(capture, JSON.stringify(existing));
+}
+process.exit(0);
+`,
+    'utf-8',
+  );
+  await chmod(ffmpegPath, 0o755);
+
+  const runtime = new Runtime({
+    renderVideo: true,
+    tempDir: workDir,
+    ffmpeg: { path: ffmpegPath, ffprobePath: ffmpegPath },
+  });
+
+  const executor = new FakeBrowserExecutor(screenshotPath);
+  runtime.setBrowserExecutor(executor);
+  (runtime as unknown as { delay: () => Promise<void> }).delay = async () => undefined;
 
   const originalLog = console.log;
   console.log = () => undefined;
@@ -168,12 +214,16 @@ process.exit(0);
   assert.equal(captured.length, 2, '应为 highlight/click 各生成一个 ffmpeg 片段');
 
   for (const args of captured) {
+    const hasCaptureInput = args.some((value, index) => value === '-i' && args[index + 1] === '/tmp/fake-browser-recording.mp4');
+    assert.ok(hasCaptureInput, '应以 stopRecording 返回的 capturePath 作为视频输入');
+
     const hasLoop = args.some((value, index) => value === '-loop' && args[index + 1] === '1');
-    assert.ok(hasLoop, '截图片段应使用 -loop 1 输入图片');
-    const vfIndex = args.indexOf('-vf');
-    assert.ok(vfIndex >= 0, '应包含 -vf');
-    const vf = args[vfIndex + 1] ?? '';
-    assert.ok(!String(vf).includes('drawtext='), '无文本时不应叠加 drawtext');
+    assert.ok(!hasLoop, '录制片段不应使用 -loop 1 输入图片');
+
+    const hasAnullsrc = args.some((value) => String(value).includes('anullsrc='));
+    assert.ok(hasAnullsrc, '无音频时应注入静音音轨');
+
+    const hasDuration = args.some((value, index) => value === '-t' && args[index + 1] === '1');
+    assert.ok(hasDuration, '无解说时应按默认最小时长截断输出');
   }
 });
-

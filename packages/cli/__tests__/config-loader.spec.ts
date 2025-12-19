@@ -65,6 +65,13 @@ test('loadCliConfig 应支持 executors.browser(puppeteer)，并规范化 screen
       type: 'puppeteer',
       headless: false,
       screenshotDir: 'dist/browser-captures',
+      recording: {
+        outputDir: 'dist/browser-recordings',
+        fps: 30,
+        format: 'jpeg',
+        quality: 80,
+        ffmpegPath: 'ffmpeg',
+      },
       viewport: { width: 1280, height: 720, deviceScaleFactor: 2 },
     },
   },
@@ -79,6 +86,13 @@ test('loadCliConfig 应支持 executors.browser(puppeteer)，并规范化 screen
     assert.ok(browser && browser.type === 'puppeteer');
     assert.equal(browser.headless, false);
     assert.equal(browser.screenshotDir, join(cwd, 'dist', 'browser-captures'));
+    assert.deepEqual(browser.recording, {
+      outputDir: join(cwd, 'dist', 'browser-recordings'),
+      fps: 30,
+      format: 'jpeg',
+      quality: 80,
+      ffmpegPath: 'ffmpeg',
+    });
     assert.deepEqual(browser.viewport, { width: 1280, height: 720, deviceScaleFactor: 2 });
   });
 });

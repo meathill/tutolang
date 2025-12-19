@@ -52,11 +52,13 @@ export class Runtime {
         const url = this.resolveBrowserTarget(options.browser);
         await this.browserExecutor.navigate(url);
       }
-      const screenshotPath = await this.browserExecutor.screenshot();
-      if (screenshotPath) {
-        await this.createImageSlide(screenshotPath, content, undefined, audioPath);
-        return;
-      }
+      await this.captureBrowserRecording({
+        action: async () => undefined,
+        minDuration: 1.2,
+        audioPath,
+        fallbackText: content,
+      });
+      return;
     }
 
     await this.createSlide(content, undefined, audioPath);
@@ -181,34 +183,48 @@ export class Runtime {
     await this.createSlide(`编辑 ${path}:${lineNumber}\n${text ?? ''}`, 1.4, audioPath);
   }
 
-  async highlight(selector: string): Promise<void> {
+  async highlight(selector: string, narration?: string): Promise<void> {
     this.log('highlight', selector);
+    const audioPath = await this.generateSpeechAudio(narration);
+    if (this.config.renderVideo && this.browserExecutor) {
+      await this.captureBrowserRecording({
+        action: async () => {
+          await this.browserExecutor!.highlight(selector);
+        },
+        minDuration: narration ? 1.2 : 1,
+        audioPath,
+        afterActionDelayMs: 150,
+        fallbackText: narration ? `高亮 ${selector}\n${narration}` : `高亮 ${selector}`,
+      });
+      return;
+    }
+
     if (this.browserExecutor) {
       await this.browserExecutor.highlight(selector);
     }
-    if (this.config.renderVideo && this.browserExecutor) {
-      const screenshotPath = await this.browserExecutor.screenshot();
-      if (screenshotPath) {
-        await this.createImageSlide(screenshotPath, undefined, 1);
-        return;
-      }
-    }
-    await this.createSlide(`高亮 ${selector}`, 1);
+    await this.createSlide(narration ? `高亮 ${selector}\n${narration}` : `高亮 ${selector}`, narration ? 1.2 : 1, audioPath);
   }
 
-  async click(selector: string): Promise<void> {
+  async click(selector: string, narration?: string): Promise<void> {
     this.log('click', selector);
+    const audioPath = await this.generateSpeechAudio(narration);
+    if (this.config.renderVideo && this.browserExecutor) {
+      await this.captureBrowserRecording({
+        action: async () => {
+          await this.browserExecutor!.click(selector);
+        },
+        minDuration: narration ? 1.2 : 1,
+        audioPath,
+        afterActionDelayMs: 250,
+        fallbackText: narration ? `点击 ${selector}\n${narration}` : `点击 ${selector}`,
+      });
+      return;
+    }
+
     if (this.browserExecutor) {
       await this.browserExecutor.click(selector);
     }
-    if (this.config.renderVideo && this.browserExecutor) {
-      const screenshotPath = await this.browserExecutor.screenshot();
-      if (screenshotPath) {
-        await this.createImageSlide(screenshotPath, undefined, 1);
-        return;
-      }
-    }
-    await this.createSlide(`点击 ${selector}`, 1);
+    await this.createSlide(narration ? `点击 ${selector}\n${narration}` : `点击 ${selector}`, narration ? 1.2 : 1, audioPath);
   }
 
   async browser(path: string): Promise<void> {
@@ -216,26 +232,14 @@ export class Runtime {
     if (this.browserExecutor) {
       const url = this.resolveBrowserTarget(path);
       await this.browserExecutor.navigate(url);
-      if (this.config.renderVideo) {
-        const screenshotPath = await this.browserExecutor.screenshot();
-        if (screenshotPath) {
-          await this.createImageSlide(screenshotPath, `浏览：${path}`, 1.2);
-          return;
-        }
-      }
+      if (this.config.renderVideo) return;
     }
     await this.createSlide(`浏览：${path}`, 1.2);
   }
 
   async browserEnd(path: string): Promise<void> {
     this.log('browserEnd', path);
-    if (this.config.renderVideo && this.browserExecutor) {
-      const screenshotPath = await this.browserExecutor.screenshot();
-      if (screenshotPath) {
-        await this.createImageSlide(screenshotPath, `浏览结束：${path}`, 1);
-        return;
-      }
-    }
+    if (this.config.renderVideo && this.browserExecutor) return;
     await this.createSlide(`浏览结束：${path}`, 1);
   }
 
@@ -272,6 +276,7 @@ export class Runtime {
 
   private async generateSpeechAudio(text?: string): Promise<string | undefined> {
     if (!this.config.renderVideo) return undefined;
+    if (this.config.tts?.engine === 'none') return undefined;
     const trimmed = text?.trim();
     if (!trimmed) return undefined;
     try {
@@ -321,6 +326,99 @@ export class Runtime {
       slideOptions: options,
     });
     this.videoSegments.push(segmentPath);
+  }
+
+  private async captureBrowserRecording(options: {
+    action: () => Promise<void>;
+    minDuration: number;
+    audioPath?: string;
+    afterActionDelayMs?: number;
+    fallbackText?: string;
+  }): Promise<void> {
+    if (!this.config.renderVideo || !this.browserExecutor) return;
+    await this.ensureTempDir();
+
+    let desiredDuration = options.minDuration;
+    if (options.audioPath) {
+      const audioDuration = await this.media.getMediaDuration(options.audioPath);
+      if (audioDuration) {
+        desiredDuration = Math.max(desiredDuration, audioDuration + 0.2);
+      }
+    }
+
+    let started = false;
+    let capturePath: string | undefined;
+    let captureStartedAt = 0;
+    let captureStopRequestedAt = 0;
+
+    try {
+      await this.browserExecutor.startRecording();
+      started = true;
+      captureStartedAt = Date.now();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`[browser] 开始录制失败，降级为截图：${reason}`);
+      const screenshotPath = await this.browserExecutor.screenshot();
+      if (!screenshotPath) return;
+      await this.createImageSlide(screenshotPath, options.fallbackText, desiredDuration, options.audioPath);
+      return;
+    }
+
+    let actionError: unknown;
+    try {
+      await options.action();
+      if (options.afterActionDelayMs) {
+        await this.delay(options.afterActionDelayMs);
+      }
+
+      const elapsedMs = Date.now() - captureStartedAt;
+      const desiredMs = Math.ceil(desiredDuration * 1000);
+      const remainingMs = Math.max(0, desiredMs - elapsedMs);
+      if (remainingMs > 0) {
+        await this.delay(remainingMs);
+      }
+    } catch (error) {
+      actionError = error;
+    } finally {
+      if (started) {
+        captureStopRequestedAt = Date.now();
+        try {
+          capturePath = await this.browserExecutor.stopRecording();
+        } catch {
+          capturePath = undefined;
+        }
+      }
+    }
+
+    if (actionError) throw actionError;
+
+    if (!capturePath) {
+      console.warn('[browser] 停止录制失败，降级为截图');
+      const screenshotPath = await this.browserExecutor.screenshot();
+      if (!screenshotPath) return;
+      await this.createImageSlide(screenshotPath, options.fallbackText, desiredDuration, options.audioPath);
+      return;
+    }
+
+    try {
+      const segmentDuration = Math.max(desiredDuration, (captureStopRequestedAt - captureStartedAt) / 1000);
+      const segmentPath = await transcodeCaptureToSegment({
+        config: this.config,
+        media: this.media,
+        tempDir: this.tempDir!,
+        segmentIndex: this.videoSegments.length,
+        capturePath,
+        audioPath: options.audioPath,
+        duration: segmentDuration,
+      });
+      this.videoSegments.push(segmentPath);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`[browser] 转码失败，降级为截图：${reason}`);
+      const screenshotPath = await this.browserExecutor.screenshot();
+      if (!screenshotPath) return;
+      await this.createImageSlide(screenshotPath, options.fallbackText, desiredDuration, options.audioPath);
+    }
   }
 
   private async recordCodeSegment(context: RuntimeFileContext, lineNumber: number, narration?: string): Promise<void> {

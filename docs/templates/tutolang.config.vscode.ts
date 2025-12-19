@@ -13,6 +13,9 @@ export default {
   runtime: {
     renderVideo: true,
     tts: {
+      // 如果你暂时不想调用 TTS（例如额度用完），可设置：
+      // engine: 'none',
+
       // apiKey: process.env.GOOGLE_API_KEY,
     },
     ffmpeg: {
@@ -63,6 +66,14 @@ export default {
     //   type: 'puppeteer',
     //   headless: true,
     //   screenshotDir: 'dist/browser-captures',
+    //   recording: {
+    //     // 浏览器内部录制（CDP screencast），输出 mp4（仍会被 Runtime 统一转码为标准片段）
+    //     outputDir: 'dist/browser-recordings',
+    //     fps: 30,
+    //     format: 'jpeg',
+    //     quality: 80,
+    //     // ffmpegPath: 'ffmpeg',
+    //   },
     //   viewport: { width: 1280, height: 720 },
     // },
   },

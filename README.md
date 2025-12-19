@@ -8,7 +8,7 @@
 - 本机可执行 `ffmpeg` / `ffprobe`
 - 可选：Gemini TTS（设置 `GOOGLE_API_KEY`，否则会自动降级为静音解说）
 - 可选：VSCode 录屏（启动 `executor/vscode` 的 Extension Host，并配置录屏参数模板）
-- 可选：浏览器预览（Puppeteer 截图，将页面截图转成视频片段；需安装 `puppeteer` 或 `puppeteer-core`）
+- 可选：浏览器预览/录制（Puppeteer + CDP screencast，浏览器内部录制；需安装 `puppeteer` 或 `puppeteer-core`）
 
 ## 快速开始（开发态）
 
@@ -98,6 +98,7 @@ CommonJS 配置请命名为 `tutolang.config.cjs` 并使用 `module.exports = { 
 > TTS 配置说明（Gemini-2.5-flash-preview-tts + `@google/genai`）：
 > - 提供 `GOOGLE_API_KEY`（官方 Gemini API Key），否则会跳过语音生成仅输出文字画面。
 > - 可覆盖字段：`tts.model`（默认 `gemini-2.5-flash-preview-tts`）、`tts.voiceName`（默认 `Puck`）、`tts.sampleRateHertz`（默认 24000）。  
+> - 如果你暂时不想调用 TTS（例如额度用完），可在配置里设置 `runtime.tts.engine = "none"`，强制跳过语音生成（仍会注入静音音轨，保证片段可合并）。
 > - AI 调用（如 TTS）默认会做磁盘缓存，目录为 `{CWD}/.tutolang-cache/`；可通过 `TUTOLANG_CACHE_DIR` 或配置项 `cacheDir` / `tts.cacheDir` 覆盖。
 > - 需要本地安装 `ffmpeg`/`ffprobe`；如路径不同，可通过 `ffmpeg.path` 与 `ffmpeg.ffprobePath` 覆盖。
 
@@ -111,9 +112,13 @@ CommonJS 配置请命名为 `tutolang.config.cjs` 并使用 `module.exports = { 
 更完整的步骤与注意事项见 `executor/vscode/README.md`。
 录屏参数模板示例见 `docs/recording.md`（包含 macOS avfoundation 示例）。
 
-#### 浏览器预览说明（MVP）
+#### 浏览器预览/录制说明（Puppeteer）
 
-启用浏览器执行器后（`executors.browser.type = "puppeteer"`），`browser ...` 区块以及其中的 `[click]`/`[highlight]` 会在渲染视频时用「截图 → 视频片段」的方式产出画面（目前不做真实录屏）。
+启用浏览器执行器后（`executors.browser.type = "puppeteer"`）：
+
+- `browser ...`：打开页面（渲染视频时仅做“导航”，不单独生成片段）
+- `say(browser)`：会用**浏览器内部录制**生成片段（CDP `Page.startScreencast` 拉帧 → ffmpeg 编码），并把解说音轨烘焙进片段
+- `[click]`/`[highlight]`：同样会录制动作过程并生成片段（失败时会降级为截图片段）
 
 依赖（二选一）：
 
@@ -131,6 +136,13 @@ executors: {
     type: 'puppeteer',
     headless: true,
     screenshotDir: 'dist/browser-captures',
+    recording: {
+      outputDir: 'dist/browser-recordings',
+      fps: 30,
+      format: 'jpeg',
+      quality: 80,
+      // ffmpegPath: 'ffmpeg',
+    },
     viewport: { width: 1280, height: 720 },
   },
 }

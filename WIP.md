@@ -134,6 +134,15 @@
   - [ ] 测试：补齐 Runtime/CLI 的单测（不依赖真实浏览器/ffmpeg）。
   - [ ] 文档：补配置与使用说明（安装依赖、常见坑、示例脚本）。
 
+## 下一步（2025-12-18 浏览器内部录制）
+- 目标：浏览器执行器支持“浏览器内部录制”（CDP screencast → ffmpeg 编码），让 `browser` 区块可以生成真实动态画面（不依赖系统录屏）。
+- TODO：
+  - [ ] executor/browser：实现 `startRecording/stopRecording`（CDP `Page.startScreencast` 拉帧，落盘为序列帧后用 ffmpeg 编码为 mp4）。
+  - [ ] Runtime：在 `say(browser)`/`[click]`/`[highlight]` 场景优先走录制片段（失败时降级截图），并将解说音轨烘焙进 segment。
+  - [ ] Compiler：浏览器块内的 marker 生成合并后的调用（例如 `highlight(selector, narration)`，`say(..., { browser: 'true' })`），避免“动作/解说”拆成两个片段。
+  - [ ] 测试：覆盖“录制路径/降级路径”的参数拼装与时长逻辑（不依赖真实 puppeteer/ffmpeg）。
+  - [ ] 文档：补配置项（录制 fps、输出目录、ffmpeg 路径）与使用步骤。
+
 ## 近期优先事项（建议）
 1. **Parser 落地**：补全词法/语法规则（关键字、字符串、缩进、注释、标记行），用 `sample/hello-world.tutolang` 写单测驱动。
 2. **AST 与生成**：根据 `@tutolang/types` 扩充必要字段（如 marker 参数/类型），实现 CodeGenerator 输出调用 Runtime 的 TS 代码。
